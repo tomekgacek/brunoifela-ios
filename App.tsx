@@ -188,13 +188,7 @@ export default function App() {
     [...seasonEpisodes, ...season2Episodes].find((episode) => episode.code === selectedEpisodeCode) ??
     seasonEpisodes[0];
 
-  const mapEvents = useMemo(
-    () =>
-      selectedLocation.events.filter(
-        (event) => event.episode === selectedEpisodeCode || selectedEpisodeCode === 'all',
-      ),
-    [selectedEpisodeCode, selectedLocation.events],
-  );
+  const mapEvents = selectedLocation.events;
 
   const selectedQuiz = allQuizzes.find((quiz) => quiz.episodeCode === selectedEpisodeCode);
 
@@ -779,12 +773,15 @@ export default function App() {
                 {selectedLocation.icon} {selectedLocation.name}
               </Text>
               {mapEvents.length === 0 ? (
-                <Text style={styles.factText}>Brak wydarzen dla tego miejsca.</Text>
+                <Text style={styles.factText}>Wybierz miejsce na mapie.</Text>
               ) : (
                 mapEvents.map((event, index) => (
-                  <Text key={`${selectedLocation.id}-${index}`} style={styles.factText}>
-                    • {event.episode}: {event.action}
-                  </Text>
+                  <View key={`${selectedLocation.id}-${index}`} style={styles.mapEventRow}>
+                    <View style={styles.mapEpisodeBadge}>
+                      <Text style={styles.mapEpisodeBadgeText}>{event.episode}</Text>
+                    </View>
+                    <Text style={styles.factText}>{event.action}</Text>
+                  </View>
                 ))
               )}
             </View>
@@ -1072,7 +1069,24 @@ export default function App() {
                   </View>
                 ) : (
                   <>  
-                    <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
+                    {/* Score + visual moves counter */}
+                    <View style={styles.matchStatsRow}>
+                      <Text style={styles.matchScoreLabel}>Punkty</Text>
+                      <Text style={styles.matchScoreValue}>{matchScore}</Text>
+                    </View>
+                    <View style={styles.tapTimerWrap}>
+                      <Text style={[
+                        styles.tapTimerNumber,
+                        { color: matchMoves <= 5 ? '#cb3f45' : '#2f8b5f' },
+                      ]}>{matchMoves}</Text>
+                      <View style={styles.tapTimerTrack}>
+                        <View style={[styles.tapTimerFill, {
+                          width: `${Math.round((matchMoves / 18) * 100)}%` as `${number}%`,
+                          backgroundColor: matchMoves <= 5 ? '#cb3f45' : '#2f8b5f',
+                        }]} />
+                      </View>
+                      <Text style={styles.sectionDescription}>ruchów pozostało</Text>
+                    </View>
                     {/* Hint button */}
                     <Pressable
                       style={[styles.hintBtn, matchHints === 0 && styles.hintBtnDisabled]}
@@ -1699,6 +1713,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffd54f',
     borderWidth: 3,
     borderColor: '#ff6f00',
+  },
+  mapEventRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  mapEpisodeBadge: {
+    backgroundColor: 'rgba(47, 143, 91, 0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    minWidth: 54,
+    alignItems: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  mapEpisodeBadgeText: {
+    color: '#1f5f43',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  matchStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  matchScoreLabel: {
+    color: '#664d31',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  matchScoreValue: {
+    color: '#3a2000',
+    fontWeight: '900',
+    fontSize: 28,
   },
   tapTimerWrap: {
     alignItems: 'center',
