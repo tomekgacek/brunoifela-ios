@@ -133,6 +133,16 @@ export default function App() {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackOpacity] = useState(new Animated.Value(0));
 
+  // Tap game enhancements
+  const tapBurstScale = useRef(new Animated.Value(0.3)).current;
+  const tapBurstOpacity = useRef(new Animated.Value(0)).current;
+  const [tapBurstPos, setTapBurstPos] = useState<{ x: number; y: number } | null>(null);
+  const [tapGameOver, setTapGameOver] = useState(false);
+
+  // Match-3 enhancements
+  const matchFlashAnim = useRef(new Animated.Value(0)).current;
+  const [matchGameOver, setMatchGameOver] = useState(false);
+
   // Animate in when screen changes
   useEffect(() => {
     if (screen === 'splash') {
@@ -367,6 +377,7 @@ export default function App() {
         if (current <= 1) {
           clearInterval(timer);
           setTapPlaying(false);
+          setTapGameOver(true);
           announce('Koniec rundy');
           return 0;
         }
@@ -401,6 +412,7 @@ export default function App() {
     setTapScore(0);
     setTapTimeLeft(20);
     setTapPlaying(true);
+    setTapGameOver(false);
     setDailyRounds((current) => current + 1);
     announce('Start');
     moveTarget();
@@ -410,6 +422,14 @@ export default function App() {
     if (!tapPlaying) {
       return;
     }
+    // Burst animation at current target position
+    setTapBurstPos({ x: tapTarget.x, y: tapTarget.y });
+    tapBurstScale.setValue(0.3);
+    tapBurstOpacity.setValue(0.9);
+    Animated.parallel([
+      Animated.timing(tapBurstScale, { toValue: 2.8, duration: 420, useNativeDriver: true }),
+      Animated.timing(tapBurstOpacity, { toValue: 0, duration: 420, useNativeDriver: true }),
+    ]).start();
     setTapScore((current) => current + 1);
     showFeedback('+1');
     announce('Brawo');
@@ -473,6 +493,7 @@ export default function App() {
     setMatchSelected(null);
     setMatchScore(0);
     setMatchMoves(18);
+    setMatchGameOver(false);
     setDailyRounds((current) => current + 1);
     announce('Nowa plansza');
   };
@@ -506,6 +527,9 @@ export default function App() {
     if (result.removed > 0) {
       setMatchBoard(result.board);
       setMatchScore((current) => current + result.removed);
+      // Flash board briefly
+      matchFlashAnim.setValue(0.75);
+      Animated.timing(matchFlashAnim, { toValue: 0, duration: 380, useNativeDriver: true }).start();
       showFeedback(`+${result.removed}`);
       if (result.removed >= 6) {
         announce('Combo');
@@ -513,6 +537,7 @@ export default function App() {
         announce('Swietnie');
       }
     }
+    if (matchMoves - 1 <= 0) setMatchGameOver(true);
     setMatchSelected(null);
   };
 
@@ -914,74 +939,142 @@ export default function App() {
 
             {activeGameTab === 'zrecznosciowa' ? (
               <View style={styles.nextSeasonCard}>
-                <View style={styles.gameCardHeader}>
-                  <Text style={styles.nextSeasonTitle}>Tapnij jak najwiecej punktow w 20 sekund</Text>
-                  <Pressable onPress={() => setFullscreenGame('zrecznosciowa')} style={styles.expandBtn}>
-                    <Text style={styles.expandBtnText}>⛶</Text>
-                  </Pressable>
-                </View>
-                <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Czas: {tapTimeLeft}s | Rekord: {tapBest}</Text>
+                {tapGameOver ? (
+                  <View style={styles.gameEndCard}>
+                    <Text style={styles.gameEndEmoji}>🎉</Text>
+                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
+                    <Text style={styles.gameEndScore}>Twój wynik: {tapScore} punktów</Text>
+                    {tapScore > 0 && tapScore >= tapBest && (
+                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
+                    )}
+                    <View style={styles.gameEndButtons}>
+                      <Pressable style={styles.gameEndBtn} onPress={startTapGame}>
+                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                      </Pressable>
+                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setTapGameOver(false)}>
+                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.gameCardHeader}>
+                      <Text style={styles.nextSeasonTitle}>Tapnij jak najwięcej w 20 sekund</Text>
+                      <Pressable onPress={() => setFullscreenGame('zrecznosciowa')} style={styles.expandBtn}>
+                        <Text style={styles.expandBtnText}>⛶</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Rekord: {tapBest}</Text>
 
-                <View
-                  style={styles.tapArena}
-                  onLayout={(event) => {
-                    const { width, height } = event.nativeEvent.layout;
-                    setTapArenaWidth(width);
-                    setTapArenaHeight(height);
-                  }}
-                >
-                  <Pressable
-                    onPress={hitTapTarget}
-                    style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
-                  >
-                    <Image
-                      source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
-                      style={styles.tapFaceImage}
-                      resizeMode="cover"
-                    />
-                  </Pressable>
-                </View>
+                    <View
+                      style={styles.tapArena}
+                      onLayout={(event) => {
+                        const { width, height } = event.nativeEvent.layout;
+                        setTapArenaWidth(width);
+                        setTapArenaHeight(height);
+                      }}
+                    >
+                      <Pressable
+                        onPress={hitTapTarget}
+                        style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
+                      >
+                        <Image
+                          source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
+                          style={styles.tapFaceImage}
+                          resizeMode="cover"
+                        />
+                      </Pressable>
+                      {/* Burst effect */}
+                      {tapBurstPos && (
+                        <Animated.View
+                          pointerEvents="none"
+                          style={[styles.tapBurst, {
+                            left: tapBurstPos.x + 32 - 36,
+                            top: tapBurstPos.y + 32 - 36,
+                            opacity: tapBurstOpacity,
+                            transform: [{ scale: tapBurstScale }],
+                          }]}
+                        />
+                      )}
+                    </View>
 
-                <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
-                  <Text style={styles.quizPrimaryButtonText}>{tapPlaying ? 'Restart rundy' : 'Start rundy'}</Text>
-                </Pressable>
+                    {/* Big countdown timer */}
+                    {tapPlaying && (
+                      <View style={styles.tapTimerWrap}>
+                        <Text style={styles.tapTimerNumber}>{tapTimeLeft}</Text>
+                        <View style={styles.tapTimerTrack}>
+                          <View style={[styles.tapTimerFill, { width: `${(tapTimeLeft / 20) * 100}%` as `${number}%` }]} />
+                        </View>
+                      </View>
+                    )}
+
+                    <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
+                      <Text style={styles.quizPrimaryButtonText}>{tapPlaying ? 'Restart rundy' : 'Start rundy'}</Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             ) : activeGameTab === 'match3' ? (
               <View style={styles.nextSeasonCard}>
-                <View style={styles.gameCardHeader}>
-                  <Text style={styles.nextSeasonTitle}>Match-3: lacz 3 lub wiecej</Text>
-                  <Pressable onPress={() => setFullscreenGame('match3')} style={styles.expandBtn}>
-                    <Text style={styles.expandBtnText}>⛶</Text>
-                  </Pressable>
-                </View>
-                <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
-
-                <View style={styles.matchBoardWrap}>
-                  {matchBoard.map((row, rowIndex) => (
-                    <View key={`row-${rowIndex}`} style={styles.matchRow}>
-                      {row.map((cell, colIndex) => {
-                        const isSelected =
-                          matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
-                        return (
-                          <Pressable
-                            key={`cell-${rowIndex}-${colIndex}`}
-                            onPress={() => onTapGem(rowIndex, colIndex)}
-                            style={[
-                              styles.matchCell,
-                              isSelected && styles.matchCellSelected,
-                            ]}
-                          >
-                            <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
-                          </Pressable>
-                        );
-                      })}
+                {matchGameOver ? (
+                  <View style={styles.gameEndCard}>
+                    <Text style={styles.gameEndEmoji}>🌟</Text>
+                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
+                    <Text style={styles.gameEndScore}>Wynik: {matchScore} pkt w 18 ruchach</Text>
+                    <View style={styles.gameEndButtons}>
+                      <Pressable style={styles.gameEndBtn} onPress={resetMatch3}>
+                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                      </Pressable>
+                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setMatchGameOver(false)}>
+                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                      </Pressable>
                     </View>
-                  ))}
-                </View>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.gameCardHeader}>
+                      <Text style={styles.nextSeasonTitle}>Match-3: łącz 3 lub więcej</Text>
+                      <Pressable onPress={() => setFullscreenGame('match3')} style={styles.expandBtn}>
+                        <Text style={styles.expandBtnText}>⛶</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
 
-                <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
-                  <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
-                </Pressable>
+                    <View style={{ position: 'relative' }}>
+                      <View style={styles.matchBoardWrap}>
+                        {matchBoard.map((row, rowIndex) => (
+                          <View key={`row-${rowIndex}`} style={styles.matchRow}>
+                            {row.map((cell, colIndex) => {
+                              const isSelected =
+                                matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
+                              return (
+                                <Pressable
+                                  key={`cell-${rowIndex}-${colIndex}`}
+                                  onPress={() => onTapGem(rowIndex, colIndex)}
+                                  style={[
+                                    styles.matchCell,
+                                    isSelected && styles.matchCellSelected,
+                                  ]}
+                                >
+                                  <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                      {/* Match flash overlay */}
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[styles.matchFlashOverlay, { opacity: matchFlashAnim }]}
+                      />
+                    </View>
+
+                    <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
+                      <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             ) : activeGameTab === 'puzzle' ? (
               <View style={styles.nextSeasonCard}>
@@ -1670,6 +1763,71 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '800',
   },
+  tapBurst: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#ffd54f',
+    borderWidth: 3,
+    borderColor: '#ff6f00',
+  },
+  tapTimerWrap: {
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  tapTimerNumber: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#cb3f45',
+    lineHeight: 58,
+  },
+  tapTimerTrack: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#f0d9a6',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  tapTimerFill: {
+    height: '100%',
+    backgroundColor: '#cb3f45',
+    borderRadius: 4,
+  },
+  matchFlashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ffd700',
+    borderRadius: 10,
+    pointerEvents: 'none',
+  } as object,
+  gameEndCard: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 10,
+  },
+  gameEndEmoji: { fontSize: 60 },
+  gameEndTitle: { fontSize: 28, fontWeight: '900', color: '#3a2000' },
+  gameEndScore: { fontSize: 18, fontWeight: '700', color: '#644d33', textAlign: 'center' },
+  gameEndRecord: { fontSize: 16, fontWeight: '800', color: '#cb3f45' },
+  gameEndButtons: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  gameEndBtn: {
+    backgroundColor: '#cb3f45',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  gameEndBtnSecondary: {
+    backgroundColor: '#fff4d7',
+    borderWidth: 1,
+    borderColor: '#ecd4a2',
+  },
+  gameEndBtnText: { color: '#fff', fontWeight: '800' },
+  gameEndBtnTextSecondary: { color: '#7a542f', fontWeight: '800' },
   matchBoardWrap: {
     alignSelf: 'center',
     gap: 6,

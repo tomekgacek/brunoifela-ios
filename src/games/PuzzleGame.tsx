@@ -68,7 +68,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const [solved, setSolved] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const tileSize = containerWidth > 4 ? Math.floor((containerWidth - 4) / GRID) : 80;
+  const tileSize = containerWidth > 0 ? Math.floor(containerWidth / GRID) : 80;
   const boardSize = tileSize * GRID;
   const currentImage = PUZZLE_IMAGES[imageIdx];
 
@@ -141,13 +141,13 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
       <Text style={s.stats}>
         Ruchy: {moveCount}
-        {solved ? '  Brawo! Puzzle rozwiazane! 🎉' : ''}
       </Text>
 
-      <View
-        style={s.board}
-        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      >
+      <View style={{ position: 'relative' }}>
+        <View
+          style={s.board}
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+        >
         {tiles.map((tile, idx) => {
           if (tile === 0) {
             return (
@@ -182,6 +182,18 @@ export function PuzzleGame({ onRoundComplete }: Props) {
             </Pressable>
           );
         })}
+        </View>
+
+        {solved && (
+          <View style={s.solvedOverlay}>
+            <Text style={s.solvedEmoji}>🎉</Text>
+            <Text style={s.solvedTitle}>Brawo!</Text>
+            <Text style={s.solvedSub}>Puzzle ułożone za {moveCount} ruchów!</Text>
+            <Pressable style={s.solvedBtn} onPress={() => resetPuzzle()}>
+              <Text style={s.solvedBtnText}>Nowe układanie</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <Pressable style={s.resetBtn} onPress={() => resetPuzzle()}>
@@ -210,12 +222,30 @@ const s = StyleSheet.create({
   board: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 2,
     backgroundColor: '#c9a97a',
     borderRadius: 12,
-    padding: 2,
+    overflow: 'hidden',
   },
-  tile: { borderRadius: 4 },
+  tile: {},
+  solvedOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(255, 240, 180, 0.93)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  solvedEmoji: { fontSize: 52 },
+  solvedTitle: { fontSize: 28, fontWeight: '900', color: '#3a2000' },
+  solvedSub: { fontSize: 15, fontWeight: '700', color: '#644d33' },
+  solvedBtn: {
+    backgroundColor: '#cb3f45',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+  },
+  solvedBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   resetBtn: {
     backgroundColor: '#fff4d7',
     borderRadius: 10,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 const PALETTE = [
   '#e53935',
@@ -87,10 +87,13 @@ type Props = {
 };
 
 export function ColoringGame({ onRoundComplete }: Props) {
+  const { width: screenW } = useWindowDimensions();
   const [imageIdx, setImageIdx] = useState(0);
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
   const [painted, setPainted] = useState<Record<string, string>>({});
-  const [containerWidth, setContainerWidth] = useState(0);
+  // Initialize from screen width so canvas is sized correctly on first render.
+  // Subtract ~84 px for typical card/scroll padding on both sides.
+  const [containerWidth, setContainerWidth] = useState(() => Math.max(100, screenW - 84));
   const [done, setDone] = useState(false);
 
   const cellW = containerWidth > 0 ? containerWidth / COLS : 28;
@@ -121,6 +124,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
     onRoundComplete();
   };
 
+  // Progress is shown in the title row; show a congrats banner on done.
   const filledCount = Object.keys(painted).length;
   const progressPct = Math.round((filledCount / (COLS * ROWS)) * 100);
 
@@ -148,7 +152,16 @@ export function ColoringGame({ onRoundComplete }: Props) {
         ))}
       </ScrollView>
 
-      <Text style={s.stats}>Pomalowane: {progressPct}%{done ? '  Zapisano! 🎨' : ''}</Text>
+      {done && (
+        <View style={s.savedBanner}>
+          <Text style={s.savedBannerText}>🎨 Zapisano! Pomalowane: {progressPct}%</Text>
+          <Pressable onPress={() => setDone(false)} style={s.savedBannerClose}>
+            <Text style={s.savedBannerCloseText}>×</Text>
+          </Pressable>
+        </View>
+      )}
+
+      <Text style={s.stats}>Pomalowane: {progressPct}%</Text>
 
       <View style={s.palette}>
         {PALETTE.map((color) => (
@@ -270,4 +283,15 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   resetBtnText: { color: '#7a542f', fontWeight: '800' },
+  savedBanner: {
+    backgroundColor: '#2f8b5f',
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  savedBannerText: { color: '#fff', fontWeight: '800', flex: 1 },
+  savedBannerClose: { paddingLeft: 10 },
+  savedBannerCloseText: { color: '#fff', fontSize: 20, fontWeight: '800' },
 });
