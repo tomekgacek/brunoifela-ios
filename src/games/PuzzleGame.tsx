@@ -166,7 +166,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.title}>Ukladaj kafelki, az obrazek bedzie kompletny!</Text>
+      <Text style={s.title}>Układaj kafelki, aż obrazek będzie kompletny!</Text>
 
       <View style={s.pickerRow}>
         {PUZZLE_IMAGES.map((img, i) => (
@@ -182,36 +182,12 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         ))}
       </View>
 
-      {/* Row progress */}
-      <View style={s.rowProgress}>
-        {([0, 1, 2] as const).map((rowIdx) => {
-          const done = rowsSolved[rowIdx];
-          const active = !done && rowIdx === activeFocusRow;
-          const label = rowIdx === 0 ? 'Górny' : rowIdx === 1 ? 'Środni' : 'Dolny';
-          return (
-            <View key={rowIdx} style={[s.rowBadge, done && s.rowBadgeDone, active && s.rowBadgeActive]}>
-              <Text style={[s.rowBadgeText, (done || active) && s.rowBadgeTextBold]}>
-                {done ? '✓' : active ? '→' : '·'} {label}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-
+      {/* Moves + preview toggle — above board */}
       <View style={s.statsRow}>
         <Text style={s.stats}>Ruchy: {moveCount}</Text>
-        <View style={s.statsButtons}>
-          <Pressable
-            onPress={useHint}
-            disabled={puzzleHints <= 0 || solved}
-            style={[s.previewBtn, (puzzleHints === 0 || solved) && s.btnDisabled]}
-          >
-            <Text style={s.previewBtnText}>💡 Podpowiedź ({puzzleHints})</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowPreview((v) => !v)} style={s.previewBtn}>
-            <Text style={s.previewBtnText}>{showPreview ? '× Ukryj' : '👁️ Podgląd'}</Text>
-          </Pressable>
-        </View>
+        <Pressable onPress={() => setShowPreview((v) => !v)} style={s.previewBtn}>
+          <Text style={s.previewBtnText}>{showPreview ? '× Ukryj' : '👁️ Podgląd'}</Text>
+        </Pressable>
       </View>
 
       {showPreview && (
@@ -225,6 +201,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         </View>
       )}
 
+      {/* Board */}
       <View style={{ position: 'relative' }}>
         <View
           style={s.board}
@@ -280,8 +257,42 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         )}
       </View>
 
+      {/* Row progress — below board */}
+      <View style={s.rowProgress}>
+        {([0, 1, 2] as const).map((rowIdx) => {
+          const done = rowsSolved[rowIdx];
+          const active = !done && rowIdx === activeFocusRow;
+          const label = rowIdx === 0 ? 'Górny' : rowIdx === 1 ? 'Środkowy' : 'Dolny';
+          return (
+            <View key={rowIdx} style={[s.rowBadge, done && s.rowBadgeDone, active && s.rowBadgeActive]}>
+              <Text style={[s.rowBadgeText, (done || active) && s.rowBadgeTextBold]}>
+                {done ? '✓' : active ? '→' : '·'} {label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Hint section — below board */}
+      <View style={s.hintSection}>
+        <Pressable
+          onPress={useHint}
+          disabled={puzzleHints <= 0 || solved}
+          style={[s.hintBtn, (puzzleHints === 0 || solved) && s.btnDisabled]}
+        >
+          <Text style={s.hintBtnText}>💡 Podpowiedź ({puzzleHints})</Text>
+        </Pressable>
+        <View style={s.hintInfo}>
+          <Text style={s.hintInfoText}>
+            🟡 = kafelek który trzeba przesunąć{'\n'}
+            🟢 = miejsce, w które go wsadź{'\n'}
+            Układaj rząd po rzędzie: górny → środkowy → dolny
+          </Text>
+        </View>
+      </View>
+
       <Pressable style={s.resetBtn} onPress={() => resetPuzzle()}>
-        <Text style={s.resetBtnText}>Nowe ukladanie</Text>
+        <Text style={s.resetBtnText}>Nowe układanie</Text>
       </Pressable>
     </View>
   );
@@ -334,6 +345,35 @@ const s = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#43a047',
     borderRadius: 3,
+  },
+  hintSection: {
+    gap: 8,
+  },
+  hintBtn: {
+    backgroundColor: '#fff9c4',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#f0b429',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  hintBtnText: {
+    color: '#7a4f10',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  hintInfo: {
+    backgroundColor: 'rgba(255,248,232,0.92)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ecd4a2',
+    padding: 10,
+  },
+  hintInfoText: {
+    color: '#644d33',
+    fontSize: 13,
+    lineHeight: 22,
+    fontWeight: '600',
   },
   previewBtn: {
     backgroundColor: '#fff4d7',
