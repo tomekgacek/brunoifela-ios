@@ -67,6 +67,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const [moveCount, setMoveCount] = useState(0);
   const [solved, setSolved] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
 
   const tileSize = containerWidth > 0 ? Math.floor(containerWidth / GRID) : 80;
   const boardSize = tileSize * GRID;
@@ -139,9 +140,23 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         ))}
       </View>
 
-      <Text style={s.stats}>
-        Ruchy: {moveCount}
-      </Text>
+      <View style={s.statsRow}>
+        <Text style={s.stats}>Ruchy: {moveCount}</Text>
+        <Pressable onPress={() => setShowPreview((v) => !v)} style={s.previewBtn}>
+          <Text style={s.previewBtnText}>{showPreview ? '× Ukryj' : '👁️ Podgląd'}</Text>
+        </Pressable>
+      </View>
+
+      {showPreview && (
+        <View style={s.previewBox}>
+          <Image
+            source={currentImage.source}
+            style={s.previewImage}
+            resizeMode="contain"
+          />
+          <Text style={s.previewLabel}>Tak powinien wyglądać gotowy obrazek ↑</Text>
+        </View>
+      )}
 
       <View style={{ position: 'relative' }}>
         <View
@@ -205,6 +220,45 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
 const s = StyleSheet.create({
   wrap: { gap: 10 },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  previewBtn: {
+    backgroundColor: '#fff4d7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewBtnText: {
+    color: '#734f2c',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  previewBox: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#c9a97a',
+    backgroundColor: '#f6f4ee',
+    alignItems: 'center',
+    gap: 6,
+    paddingBottom: 8,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+  },
+  previewLabel: {
+    color: '#7a542f',
+    fontWeight: '700',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingHorizontal: 10,
+  },
   title: { color: '#3d2b18', fontWeight: '800', fontSize: 14, lineHeight: 20 },
   pickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pickerBtn: {
