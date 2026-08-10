@@ -179,10 +179,10 @@ export default function App() {
     });
   };
 
-  const selectedLocation = useMemo(
-    () => seasonMapData.find((location) => location.id === selectedLocationId) ?? seasonMapData[0],
-    [selectedLocationId],
-  );
+  const selectedLocation = useMemo(() => {
+    const data = mapSeason === 1 ? seasonMapData : season2MapData;
+    return data.find((location) => location.id === selectedLocationId) ?? data[0];
+  }, [selectedLocationId, mapSeason]);
 
   const selectedEpisode =
     [...seasonEpisodes, ...season2Episodes].find((episode) => episode.code === selectedEpisodeCode) ??
@@ -656,7 +656,9 @@ export default function App() {
             <Text style={styles.backBtnText}>← Menu</Text>
           </Pressable>
           <View style={styles.topBarRight}>
-            <Text style={styles.topBarStars}>⭐ {totalStars}/30</Text>
+            {screen === 'quiz' && (
+              <Text style={styles.topBarStars}>⭐ {totalStars}/30</Text>
+            )}
             <Pressable onPress={askResetProgress} style={styles.resetProgressButton}>
               <Text style={styles.resetProgressButtonText}>Reset</Text>
             </Pressable>
@@ -780,7 +782,7 @@ export default function App() {
                     <View style={styles.mapEpisodeBadge}>
                       <Text style={styles.mapEpisodeBadgeText}>{event.episode}</Text>
                     </View>
-                    <Text style={styles.factText}>{event.action}</Text>
+                    <Text style={[styles.factText, { flex: 1 }]}>{event.action}</Text>
                   </View>
                 ))
               )}
