@@ -659,9 +659,11 @@ export default function App() {
             {screen === 'quiz' && (
               <Text style={styles.topBarStars}>⭐ {totalStars}/30</Text>
             )}
-            <Pressable onPress={askResetProgress} style={styles.resetProgressButton}>
-              <Text style={styles.resetProgressButtonText}>Reset</Text>
-            </Pressable>
+            {screen === 'quiz' && (
+              <Pressable onPress={askResetProgress} style={styles.resetProgressButton}>
+                <Text style={styles.resetProgressButtonText}>Reset</Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
