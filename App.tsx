@@ -913,10 +913,11 @@ export default function App() {
         {screen === 'gry' && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Minigry</Text>
+            <Text style={styles.sectionDescription}>Wybierz grę — otworzy się w pełnym ekranie.</Text>
             <View style={styles.gameTabsGrid}>
               {(
                 [
-                  { id: 'zrecznosciowa', label: 'Zrecznosciowa' },
+                  { id: 'zrecznosciowa', label: 'Zręcznościowa' },
                   { id: 'match3', label: 'Match-3' },
                   { id: 'puzzle', label: 'Puzzle' },
                   { id: 'kolorowanki', label: 'Kolorowanki' },
@@ -936,179 +937,6 @@ export default function App() {
                 </Pressable>
               ))}
             </View>
-
-            {activeGameTab === 'zrecznosciowa' ? (
-              <View style={styles.nextSeasonCard}>
-                {tapGameOver ? (
-                  <View style={styles.gameEndCard}>
-                    <Text style={styles.gameEndEmoji}>🎉</Text>
-                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
-                    <Text style={styles.gameEndScore}>Twój wynik: {tapScore} punktów</Text>
-                    {tapScore > 0 && tapScore >= tapBest && (
-                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
-                    )}
-                    <View style={styles.gameEndButtons}>
-                      <Pressable style={styles.gameEndBtn} onPress={startTapGame}>
-                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
-                      </Pressable>
-                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setTapGameOver(false)}>
-                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.gameCardHeader}>
-                      <Text style={styles.nextSeasonTitle}>Tapnij jak najwięcej w 20 sekund</Text>
-                      <Pressable onPress={() => setFullscreenGame('zrecznosciowa')} style={styles.expandBtn}>
-                        <Text style={styles.expandBtnText}>⛶</Text>
-                      </Pressable>
-                    </View>
-                    <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Rekord: {tapBest}</Text>
-
-                    <View
-                      style={styles.tapArena}
-                      onLayout={(event) => {
-                        const { width, height } = event.nativeEvent.layout;
-                        setTapArenaWidth(width);
-                        setTapArenaHeight(height);
-                      }}
-                    >
-                      <Pressable
-                        onPress={hitTapTarget}
-                        style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
-                      >
-                        <Image
-                          source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
-                          style={styles.tapFaceImage}
-                          resizeMode="cover"
-                        />
-                      </Pressable>
-                      {/* Burst effect */}
-                      {tapBurstPos && (
-                        <Animated.View
-                          pointerEvents="none"
-                          style={[styles.tapBurst, {
-                            left: tapBurstPos.x + 32 - 36,
-                            top: tapBurstPos.y + 32 - 36,
-                            opacity: tapBurstOpacity,
-                            transform: [{ scale: tapBurstScale }],
-                          }]}
-                        />
-                      )}
-                    </View>
-
-                    {/* Big countdown timer */}
-                    {tapPlaying && (
-                      <View style={styles.tapTimerWrap}>
-                        <Text style={styles.tapTimerNumber}>{tapTimeLeft}</Text>
-                        <View style={styles.tapTimerTrack}>
-                          <View style={[styles.tapTimerFill, { width: `${(tapTimeLeft / 20) * 100}%` as `${number}%` }]} />
-                        </View>
-                      </View>
-                    )}
-
-                    <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
-                      <Text style={styles.quizPrimaryButtonText}>{tapPlaying ? 'Restart rundy' : 'Start rundy'}</Text>
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            ) : activeGameTab === 'match3' ? (
-              <View style={styles.nextSeasonCard}>
-                {matchGameOver ? (
-                  <View style={styles.gameEndCard}>
-                    <Text style={styles.gameEndEmoji}>🌟</Text>
-                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
-                    <Text style={styles.gameEndScore}>Wynik: {matchScore} pkt w 18 ruchach</Text>
-                    <View style={styles.gameEndButtons}>
-                      <Pressable style={styles.gameEndBtn} onPress={resetMatch3}>
-                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
-                      </Pressable>
-                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setMatchGameOver(false)}>
-                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.gameCardHeader}>
-                      <Text style={styles.nextSeasonTitle}>Match-3: łącz 3 lub więcej</Text>
-                      <Pressable onPress={() => setFullscreenGame('match3')} style={styles.expandBtn}>
-                        <Text style={styles.expandBtnText}>⛶</Text>
-                      </Pressable>
-                    </View>
-                    <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
-
-                    <View style={{ position: 'relative' }}>
-                      <View style={styles.matchBoardWrap}>
-                        {matchBoard.map((row, rowIndex) => (
-                          <View key={`row-${rowIndex}`} style={styles.matchRow}>
-                            {row.map((cell, colIndex) => {
-                              const isSelected =
-                                matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
-                              return (
-                                <Pressable
-                                  key={`cell-${rowIndex}-${colIndex}`}
-                                  onPress={() => onTapGem(rowIndex, colIndex)}
-                                  style={[
-                                    styles.matchCell,
-                                    isSelected && styles.matchCellSelected,
-                                  ]}
-                                >
-                                  <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        ))}
-                      </View>
-                      {/* Match flash overlay */}
-                      <Animated.View
-                        pointerEvents="none"
-                        style={[styles.matchFlashOverlay, { opacity: matchFlashAnim }]}
-                      />
-                    </View>
-
-                    <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
-                      <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            ) : activeGameTab === 'puzzle' ? (
-              <View style={styles.nextSeasonCard}>
-                <View style={styles.gameCardHeader}>
-                  <Text style={styles.nextSeasonTitle}>Puzzle</Text>
-                  <Pressable onPress={() => setFullscreenGame('puzzle')} style={styles.expandBtn}>
-                    <Text style={styles.expandBtnText}>⛶</Text>
-                  </Pressable>
-                </View>
-                <PuzzleGame
-                  onRoundComplete={() => {
-                    setDailyRounds((c) => c + 1);
-                    announce('Brawo, puzzle rozwiazane');
-                    showFeedback('Puzzle!');
-                  }}
-                />
-              </View>
-            ) : (
-              <View style={styles.nextSeasonCard}>
-                <View style={styles.gameCardHeader}>
-                  <Text style={styles.nextSeasonTitle}>Kolorowanki</Text>
-                  <Pressable onPress={() => setFullscreenGame('kolorowanki')} style={styles.expandBtn}>
-                    <Text style={styles.expandBtnText}>⛶</Text>
-                  </Pressable>
-                </View>
-                <ColoringGame
-                  onRoundComplete={() => {
-                    setDailyRounds((c) => c + 1);
-                    announce('Swietny rysunek');
-                    showFeedback('Brawo!');
-                  }}
-                />
-              </View>
-            )}
           </View>
         )}
       </ScrollView>
@@ -1138,61 +966,123 @@ export default function App() {
           <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 30, gap: 10 }}>
             {fullscreenGame === 'zrecznosciowa' && (
               <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonText}>
-                  Wynik: {tapScore} | Czas: {tapTimeLeft}s | Rekord: {tapBest}
-                </Text>
-                <View
-                  style={styles.tapArenaFs}
-                  onLayout={(event) => {
-                    const { width, height } = event.nativeEvent.layout;
-                    setTapArenaWidth(width);
-                    setTapArenaHeight(height);
-                  }}
-                >
-                  <Pressable
-                    onPress={hitTapTarget}
-                    style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
-                  >
-                    <Image
-                      source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
-                      style={styles.tapFaceImage}
-                      resizeMode="cover"
-                    />
-                  </Pressable>
-                </View>
-                <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
-                  <Text style={styles.quizPrimaryButtonText}>
-                    {tapPlaying ? 'Restart rundy' : 'Start rundy'}
-                  </Text>
-                </Pressable>
+                {tapGameOver ? (
+                  <View style={styles.gameEndCard}>
+                    <Text style={styles.gameEndEmoji}>🎉</Text>
+                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
+                    <Text style={styles.gameEndScore}>Twój wynik: {tapScore} punktów</Text>
+                    {tapScore > 0 && tapScore >= tapBest && (
+                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
+                    )}
+                    <View style={styles.gameEndButtons}>
+                      <Pressable style={styles.gameEndBtn} onPress={startTapGame}>
+                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                      </Pressable>
+                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setTapGameOver(false)}>
+                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Rekord: {tapBest}</Text>
+                    <View
+                      style={styles.tapArenaFs}
+                      onLayout={(event) => {
+                        const { width, height } = event.nativeEvent.layout;
+                        setTapArenaWidth(width);
+                        setTapArenaHeight(height);
+                      }}
+                    >
+                      <Pressable
+                        onPress={hitTapTarget}
+                        style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
+                      >
+                        <Image
+                          source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
+                          style={styles.tapFaceImage}
+                          resizeMode="cover"
+                        />
+                      </Pressable>
+                      {tapBurstPos && (
+                        <Animated.View
+                          pointerEvents="none"
+                          style={[styles.tapBurst, {
+                            left: tapBurstPos.x + 32 - 36,
+                            top: tapBurstPos.y + 32 - 36,
+                            opacity: tapBurstOpacity,
+                            transform: [{ scale: tapBurstScale }],
+                          }]}
+                        />
+                      )}
+                    </View>
+                    {tapPlaying && (
+                      <View style={styles.tapTimerWrap}>
+                        <Text style={styles.tapTimerNumber}>{tapTimeLeft}</Text>
+                        <View style={styles.tapTimerTrack}>
+                          <View style={[styles.tapTimerFill, { width: `${(tapTimeLeft / 20) * 100}%` as `${number}%` }]} />
+                        </View>
+                      </View>
+                    )}
+                    <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
+                      <Text style={styles.quizPrimaryButtonText}>
+                        {tapPlaying ? 'Restart rundy' : 'Start rundy'}
+                      </Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             )}
 
             {fullscreenGame === 'match3' && (
               <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
-                <View style={styles.matchBoardWrap}>
-                  {matchBoard.map((row, rowIndex) => (
-                    <View key={`fsrow-${rowIndex}`} style={styles.matchRowLg}>
-                      {row.map((cell, colIndex) => {
-                        const isSelected =
-                          matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
-                        return (
-                          <Pressable
-                            key={`fscell-${rowIndex}-${colIndex}`}
-                            onPress={() => onTapGem(rowIndex, colIndex)}
-                            style={[styles.matchCellLg, isSelected && styles.matchCellSelected]}
-                          >
-                            <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
-                          </Pressable>
-                        );
-                      })}
+                {matchGameOver ? (
+                  <View style={styles.gameEndCard}>
+                    <Text style={styles.gameEndEmoji}>🌟</Text>
+                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
+                    <Text style={styles.gameEndScore}>Wynik: {matchScore} pkt w 18 ruchach</Text>
+                    <View style={styles.gameEndButtons}>
+                      <Pressable style={styles.gameEndBtn} onPress={resetMatch3}>
+                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                      </Pressable>
+                      <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setMatchGameOver(false)}>
+                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                      </Pressable>
                     </View>
-                  ))}
-                </View>
-                <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
-                  <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
-                </Pressable>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
+                    <View style={{ position: 'relative' }}>
+                      <View style={styles.matchBoardWrap}>
+                        {matchBoard.map((row, rowIndex) => (
+                          <View key={`fsrow-${rowIndex}`} style={styles.matchRowLg}>
+                            {row.map((cell, colIndex) => {
+                              const isSelected =
+                                matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
+                              return (
+                                <Pressable
+                                  key={`fscell-${rowIndex}-${colIndex}`}
+                                  onPress={() => onTapGem(rowIndex, colIndex)}
+                                  style={[styles.matchCellLg, isSelected && styles.matchCellSelected]}
+                                >
+                                  <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[styles.matchFlashOverlay, { opacity: matchFlashAnim }]}
+                      />
+                    </View>
+                    <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
+                      <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             )}
 
