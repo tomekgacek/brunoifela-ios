@@ -158,17 +158,26 @@ export function ColoringGame({ onRoundComplete }: Props) {
         {...panResponder.panHandlers}
       >
         <Image source={COLORING_IMAGES[imageIdx].source} style={{ width: containerWidth, height: gridH }} resizeMode="stretch" />
-        {/* Painted cells overlay */}
-        <View style={[{ position: 'absolute', top: 0, left: 0, width: containerWidth, height: gridH, flexDirection: 'row', flexWrap: 'wrap' }]} pointerEvents="none">
-          {Array.from({ length: ROWS * COLS }, (_, i) => {
-            const row = Math.floor(i / COLS);
-            const col = i % COLS;
-            const color = painted[row + '-' + col];
-            return (
-              <View key={i} style={{ width: cellW, height: cellH, backgroundColor: color || 'transparent' }} />
-            );
-          })}
-        </View>
+        {/* Only render painted cells (semi-transparent so image lines show through) */}
+        {Object.entries(painted).map(([key, color]) => {
+          const [rowStr, colStr] = key.split('-');
+          const r = Number(rowStr);
+          const c = Number(colStr);
+          return (
+            <View
+              key={key}
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                left: c * cellW,
+                top: r * cellH,
+                width: cellW,
+                height: cellH,
+                backgroundColor: color + 'b3',
+              }}
+            />
+          );
+        })}
       </View>
 
       <View style={s.actions}>

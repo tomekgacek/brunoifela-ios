@@ -141,3 +141,26 @@ export function swapAndResolve(board: Board, first: CellPos, second: CellPos): {
 
   return resolveBoard(next);
 }
+
+/** Find the first valid swap that creates a match. Returns null if no moves exist. */
+export function findHint(board: Board): { from: CellPos; to: CellPos } | null {
+  const neighbors = (row: number, col: number): CellPos[] =>
+    [
+      { row: row - 1, col },
+      { row: row + 1, col },
+      { row, col: col - 1 },
+      { row, col: col + 1 },
+    ].filter((p) => p.row >= 0 && p.row < ROWS && p.col >= 0 && p.col < COLS);
+
+  for (let row = 0; row < ROWS; row += 1) {
+    for (let col = 0; col < COLS; col += 1) {
+      for (const to of neighbors(row, col)) {
+        const result = swapAndResolve(board, { row, col }, to);
+        if (result.removed > 0) {
+          return { from: { row, col }, to };
+        }
+      }
+    }
+  }
+  return null;
+}

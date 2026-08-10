@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { seasonEpisodes, seasonMapData, season2Episodes, season2MapData } from './src/data/season1';
 import { allQuizzes } from './src/data/quiz';
-import { Board, CellPos, createInitialBoard, swapAndResolve } from './src/games/match3';
+import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './src/games/match3';
 import { PuzzleGame } from './src/games/PuzzleGame';
 import { ColoringGame } from './src/games/ColoringGame';
 
@@ -142,6 +142,9 @@ export default function App() {
   // Match-3 enhancements
   const matchFlashAnim = useRef(new Animated.Value(0)).current;
   const [matchGameOver, setMatchGameOver] = useState(false);
+  const [hintCells, setHintCells] = useState<{ from: CellPos; to: CellPos } | null>(null);
+  const [matchHints, setMatchHints] = useState(3);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animate in when screen changes
   useEffect(() => {
@@ -494,8 +497,25 @@ export default function App() {
     setMatchScore(0);
     setMatchMoves(18);
     setMatchGameOver(false);
+    setHintCells(null);
+    setMatchHints(3);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     setDailyRounds((current) => current + 1);
     announce('Nowa plansza');
+  };
+
+  const useMatchHint = () => {
+    if (matchHints <= 0 || matchGameOver) return;
+    const hint = findHint(matchBoard);
+    if (!hint) {
+      announce('Brak ruchow, nowa plansza');
+      resetMatch3();
+      return;
+    }
+    setHintCells(hint);
+    setMatchHints((h) => h - 1);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => setHintCells(null), 3000);
   };
 
   const onTapGem = (row: number, col: number) => {
@@ -918,7 +938,7 @@ export default function App() {
               {(
                 [
                   { id: 'zrecznosciowa', label: 'Zręcznościowa' },
-                  { id: 'match3', label: 'Match-3' },
+                  { id: 'match3', label: 'Kafelki' },
                   { id: 'puzzle', label: 'Puzzle' },
                   { id: 'kolorowanki', label: 'Kolorowanki' },
                 ] as { id: GameTab; label: string }[]
@@ -954,8 +974,8 @@ export default function App() {
         <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
           <View style={styles.fsHeader}>
             <Text style={styles.fsTitle}>
-              {fullscreenGame === 'zrecznosciowa' ? 'Zrecznosciowa' :
-               fullscreenGame === 'match3' ? 'Match-3' :
+              {fullscreenGame === 'zrecznosciowa' ? 'Zręcznościowa' :
+               fullscreenGame === 'match3' ? 'Kafelki' :
                fullscreenGame === 'puzzle' ? 'Puzzle' : 'Kolorowanki'}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
@@ -1051,8 +1071,18 @@ export default function App() {
                     </View>
                   </View>
                 ) : (
-                  <>
+                  <>  
                     <Text style={styles.nextSeasonText}>Punkty: {matchScore} | Ruchy: {matchMoves}</Text>
+                    {/* Hint button */}
+                    <Pressable
+                      style={[styles.hintBtn, matchHints === 0 && styles.hintBtnDisabled]}
+                      onPress={useMatchHint}
+                      disabled={matchHints === 0 || matchGameOver}
+                    >
+                      <Text style={styles.hintBtnText}>
+                        💡 Podpowiedź ({matchHints})
+                      </Text>
+                    </Pressable>
                     <View style={{ position: 'relative' }}>
                       <View style={styles.matchBoardWrap}>
                         {matchBoard.map((row, rowIndex) => (
@@ -1060,11 +1090,19 @@ export default function App() {
                             {row.map((cell, colIndex) => {
                               const isSelected =
                                 matchSelected?.row === rowIndex && matchSelected?.col === colIndex;
+                              const isHint =
+                                hintCells !== null &&
+                                ((hintCells.from.row === rowIndex && hintCells.from.col === colIndex) ||
+                                  (hintCells.to.row === rowIndex && hintCells.to.col === colIndex));
                               return (
                                 <Pressable
                                   key={`fscell-${rowIndex}-${colIndex}`}
                                   onPress={() => onTapGem(rowIndex, colIndex)}
-                                  style={[styles.matchCellLg, isSelected && styles.matchCellSelected]}
+                                  style={[
+                                    styles.matchCellLg,
+                                    isSelected && styles.matchCellSelected,
+                                    isHint && styles.matchCellHint,
+                                  ]}
                                 >
                                   <Image source={GEM_IMAGES[cell]} style={styles.gemImage} resizeMode="cover" />
                                 </Pressable>
@@ -1737,6 +1775,28 @@ const styles = StyleSheet.create({
   matchCellSelected: {
     borderColor: '#202020',
     borderWidth: 3,
+  },
+  matchCellHint: {
+    borderColor: '#ffd700',
+    borderWidth: 3,
+    transform: [{ scale: 1.12 }],
+  },
+  hintBtn: {
+    backgroundColor: '#fff4d7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#f0b429',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  hintBtnDisabled: {
+    opacity: 0.4,
+  },
+  hintBtnText: {
+    color: '#7a4f10',
+    fontWeight: '800',
+    fontSize: 14,
   },
   matchCellLg: {
     width: 52,
