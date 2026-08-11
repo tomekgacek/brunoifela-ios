@@ -31,9 +31,9 @@ const COLORING_IMAGES = [
   { id: '9', label: 'Bruno 9',      source: require('../../assets/game/kolorowanki/9_Bruno.jpeg') as number },
 ];
 
-/** Grid resolution — fine enough for smooth painting, coarse enough for performance */
-const COLS = 20;
-const ROWS = 26;
+/** Grid resolution — finer grid for smooth round brush strokes */
+const COLS = 30;
+const ROWS = 38;
 const BRUSH = 1; // paints (2*BRUSH+1)^2 cells = 3x3 area
 
 const STORAGE_KEY = 'brunoifela.coloring.v1';
@@ -158,22 +158,26 @@ export function ColoringGame({ onRoundComplete }: Props) {
         {...panResponder.panHandlers}
       >
         <Image source={COLORING_IMAGES[imageIdx].source} style={{ width: containerWidth, height: gridH }} resizeMode="stretch" />
-        {/* Only render painted cells (semi-transparent so image lines show through) */}
+        {/* Render painted cells as overlapping circles — looks like crayon/marker, not squares */}
         {Object.entries(painted).map(([key, color]) => {
           const [rowStr, colStr] = key.split('-');
           const r = Number(rowStr);
           const c = Number(colStr);
+          // Circles are 20% larger than the cell and centered, so they overlap and blend
+          const d = cellW * 1.4;
+          const offset = (d - cellW) / 2;
           return (
             <View
               key={key}
               pointerEvents="none"
               style={{
                 position: 'absolute',
-                left: c * cellW,
-                top: r * cellH,
-                width: cellW,
-                height: cellH,
-                backgroundColor: color + 'b3',
+                left: c * cellW - offset,
+                top: r * cellH - offset,
+                width: d,
+                height: d,
+                borderRadius: d / 2,
+                backgroundColor: color + 'cc',
               }}
             />
           );
