@@ -138,6 +138,9 @@ export default function App() {
   const tapBurstOpacity = useRef(new Animated.Value(0)).current;
   const [tapBurstPos, setTapBurstPos] = useState<{ x: number; y: number } | null>(null);
   const [tapGameOver, setTapGameOver] = useState(false);
+  const missOpacity = useRef(new Animated.Value(0)).current;
+  const missScale = useRef(new Animated.Value(0.3)).current;
+  const [missPos, setMissPos] = useState<{ x: number; y: number } | null>(null);
 
   // Match-3 enhancements
   const matchFlashAnim = useRef(new Animated.Value(0)).current;
@@ -431,6 +434,17 @@ export default function App() {
     showFeedback('+1');
     announce('Brawo');
     moveTarget();
+  };
+
+  const triggerMiss = (x: number, y: number) => {
+    if (!tapPlaying) return;
+    setMissPos({ x, y });
+    missOpacity.setValue(0.85);
+    missScale.setValue(0.3);
+    Animated.parallel([
+      Animated.timing(missOpacity, { toValue: 0, duration: 420, useNativeDriver: true }),
+      Animated.timing(missScale, { toValue: 2.0, duration: 420, useNativeDriver: true }),
+    ]).start();
   };
 
   const submitQuiz = () => {
@@ -938,7 +952,7 @@ export default function App() {
             <View style={styles.gameTabsGrid}>
               {(
                 [
-                  { id: 'zrecznosciowa', label: 'Zręcznościowa' },
+                  { id: 'zrecznosciowa', label: 'Łap Bruna i Felę!' },
                   { id: 'match3', label: 'Kafelki' },
                   { id: 'puzzle', label: 'Puzzle' },
                   { id: 'kolorowanki', label: 'Kolorowanki' },
@@ -975,7 +989,7 @@ export default function App() {
         <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
           <View style={styles.fsHeader}>
             <Text style={styles.fsTitle}>
-              {fullscreenGame === 'zrecznosciowa' ? 'Zręcznościowa' :
+              {fullscreenGame === 'zrecznosciowa' ? 'Łap Bruna i Felę!' :
                fullscreenGame === 'match3' ? 'Kafelki' :
                fullscreenGame === 'puzzle' ? 'Puzzle' : 'Kolorowanki'}
             </Text>
@@ -1007,24 +1021,27 @@ export default function App() {
                 ) : (
                   <>
                     <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Rekord: {tapBest}</Text>
-                    <View
+                    <Pressable
                       style={styles.tapArenaFs}
                       onLayout={(event) => {
                         const { width, height } = event.nativeEvent.layout;
                         setTapArenaWidth(width);
                         setTapArenaHeight(height);
                       }}
+                      onPress={(e) => triggerMiss(e.nativeEvent.locationX, e.nativeEvent.locationY)}
                     >
-                      <Pressable
-                        onPress={hitTapTarget}
-                        style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
-                      >
-                        <Image
-                          source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
-                          style={styles.tapFaceImage}
-                          resizeMode="cover"
-                        />
-                      </Pressable>
+                      {tapPlaying && (
+                        <Pressable
+                          onPress={hitTapTarget}
+                          style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
+                        >
+                          <Image
+                            source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
+                            style={styles.tapFaceImage}
+                            resizeMode="cover"
+                          />
+                        </Pressable>
+                      )}
                       {tapBurstPos && (
                         <Animated.View
                           pointerEvents="none"
@@ -1036,7 +1053,29 @@ export default function App() {
                           }]}
                         />
                       )}
-                    </View>
+                      {missPos && (
+                        <Animated.View
+                          pointerEvents="none"
+                          style={[styles.tapMiss, {
+                            left: missPos.x - 24,
+                            top: missPos.y - 24,
+                            opacity: missOpacity,
+                            transform: [{ scale: missScale }],
+                          }]}
+                        />
+                      )}
+                      {/* Start overlay when game not running */}
+                      {!tapPlaying && (
+                        <View style={styles.arenaStartOverlay}>
+                          <Text style={styles.arenaStartDesc}>
+                            {'Sprawdź jak szybki jesteś!\nTapnij Bruna lub Felę!'}
+                          </Text>
+                          <Pressable style={styles.arenaStartBtn} onPress={startTapGame}>
+                            <Text style={styles.arenaStartBtnText}>▶ Start</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </Pressable>
                     {tapPlaying && (
                       <View style={styles.tapTimerWrap}>
                         <Text style={styles.tapTimerNumber}>{tapTimeLeft}</Text>
@@ -1045,11 +1084,11 @@ export default function App() {
                         </View>
                       </View>
                     )}
-                    <Pressable style={styles.quizPrimaryButton} onPress={startTapGame}>
-                      <Text style={styles.quizPrimaryButtonText}>
-                        {tapPlaying ? 'Restart rundy' : 'Start rundy'}
-                      </Text>
-                    </Pressable>
+                    {tapPlaying && (
+                      <Pressable style={styles.quizSecondaryButton} onPress={startTapGame}>
+                        <Text style={styles.quizSecondaryButtonText}>↺ Restart rundy</Text>
+                      </Pressable>
+                    )}
                   </>
                 )}
               </View>
@@ -1717,6 +1756,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffd54f',
     borderWidth: 3,
     borderColor: '#ff6f00',
+  },
+  tapMiss: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ff1744',
+  },
+  arenaStartOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255,252,240,0.55)',
+  },
+  arenaStartDesc: {
+    color: '#3a2000',
+    fontWeight: '800',
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  arenaStartBtn: {
+    backgroundColor: '#2f8b5f',
+    borderRadius: 22,
+    paddingHorizontal: 32,
+    paddingVertical: 15,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  arenaStartBtnText: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 22,
   },
   mapEventRow: {
     flexDirection: 'row',
