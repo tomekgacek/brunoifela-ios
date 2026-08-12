@@ -10,10 +10,9 @@ import {
   Animated,
 } from 'react-native';
 
-const brunoRiverImage = require('../../assets/game/Rzeka_Bruno.png');
-const felaRiverImage = require('../../assets/game/Rzeka_Fela.png');
-const brunoFaceImg = require('../../assets/game/landing-page/Bruno.png');
-const felaFaceImg = require('../../assets/game/landing-page/Fela.png');
+const riverImage = require('../../assets/game/rzeka.png');
+const brunoFaceImg = require('../../assets/game/Bruno_w_wodzie.png');
+const felaFaceImg = require('../../assets/game/Fela_w_wodzie.png');
 
 // Lane positions as fraction of screen width (matches river image layout)
 // River occupies ~20%-80% of image width; dividers at ~35% and ~65%
@@ -183,7 +182,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   };
 
   const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, 3 - lives));
-  const bgImage = character === 'bruno' ? brunoRiverImage : felaRiverImage;
+  const bgImage = riverImage;
   const faceImg = character === 'bruno' ? brunoFaceImg : felaFaceImg;
 
   return (
