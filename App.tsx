@@ -153,11 +153,7 @@ export default function App() {
   // Swimming game state
   const [showSwimmingCharacterSelect, setShowSwimmingCharacterSelect] = useState(false);
   const [swimmingCharacter, setSwimmingCharacter] = useState<'bruno' | 'fela'>('bruno');
-  const [swimmingLives, setSwimmingLives] = useState(3);
-  const [swimmingScore, setSwimmingScore] = useState(0);
-  const [swimmingPlaying, setSwimmingPlaying] = useState(false);
-  const [swimmingGameOver, setSwimmingGameOver] = useState(false);
-  const [swimmingBest, setSwimmingBest] = useState(0);
+  const [showSwimmingGame, setShowSwimmingGame] = useState(false);
 
   // Animate in when screen changes
   useEffect(() => {
@@ -1221,66 +1217,7 @@ export default function App() {
               </View>
             )}
 
-            {fullscreenGame === 'pływanie' && (
-              <View style={styles.nextSeasonCard}>
-                {swimmingGameOver ? (
-                  <View style={styles.gameEndCard}>
-                    <Text style={styles.gameEndEmoji}>🏊</Text>
-                    <Text style={styles.gameEndTitle}>Koniec gry!</Text>
-                    <Text style={styles.gameEndScore}>Twój wynik: {swimmingScore} ominiętych przeszkód</Text>
-                    {swimmingScore > 0 && swimmingScore >= swimmingBest && (
-                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
-                    )}
-                    <View style={styles.gameEndButtons}>
-                      <Pressable 
-                        style={styles.gameEndBtn} 
-                        onPress={() => {
-                          setSwimmingScore(0);
-                          setSwimmingLives(3);
-                          setSwimmingGameOver(false);
-                          setSwimmingPlaying(true);
-                        }}
-                      >
-                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
-                      </Pressable>
-                      <Pressable 
-                        style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} 
-                        onPress={() => {
-                          setSwimmingGameOver(false);
-                          setFullscreenGame(null);
-                        }}
-                      >
-                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.swimmingUIRow}>
-                      <Text style={styles.swimmingUIText}>❤️ Życia: {swimmingLives}</Text>
-                      <Text style={styles.swimmingUIText}>⭐ Wynik: {swimmingScore} | Rekord: {swimmingBest}</Text>
-                    </View>
-                    <SwimmingGame
-                      character={swimmingCharacter}
-                      lives={swimmingLives}
-                      score={swimmingScore}
-                      isPlaying={swimmingPlaying}
-                      onGameOver={(finalScore) => {
-                        if (finalScore > swimmingBest) {
-                          setSwimmingBest(finalScore);
-                          announce('Nowy rekord');
-                          showFeedback('Nowy rekord!');
-                        }
-                        setSwimmingGameOver(true);
-                        setSwimmingPlaying(false);
-                      }}
-                      onLivesChange={setSwimmingLives}
-                      onScoreChange={setSwimmingScore}
-                    />
-                  </>
-                )}
-              </View>
-            )}
+
           </ScrollView>
         </SafeAreaView>
       </ImageBackground>
@@ -1302,35 +1239,45 @@ export default function App() {
               style={styles.characterSelectBtn}
               onPress={() => {
                 setSwimmingCharacter('bruno');
-                setSwimmingScore(0);
-                setSwimmingLives(3);
-                setSwimmingGameOver(false);
-                setSwimmingPlaying(true);
                 setShowSwimmingCharacterSelect(false);
-                setFullscreenGame('pływanie');
+                setShowSwimmingGame(true);
               }}
             >
-              <Text style={styles.characterSelectEmoji}>🧸</Text>
+              <Image source={brunoFaceImg} style={styles.characterSelectFace} />
               <Text style={styles.characterSelectLabel}>Bruno</Text>
             </Pressable>
             <Pressable
               style={styles.characterSelectBtn}
               onPress={() => {
                 setSwimmingCharacter('fela');
-                setSwimmingScore(0);
-                setSwimmingLives(3);
-                setSwimmingGameOver(false);
-                setSwimmingPlaying(true);
                 setShowSwimmingCharacterSelect(false);
-                setFullscreenGame('pływanie');
+                setShowSwimmingGame(true);
               }}
             >
-              <Text style={styles.characterSelectEmoji}>🧚</Text>
+              <Image source={felaFaceImg} style={styles.characterSelectFace} />
               <Text style={styles.characterSelectLabel}>Fela</Text>
             </Pressable>
           </View>
         </View>
       </View>
+    </Modal>
+
+    {/* Swimming game — dedicated fullscreen modal */}
+    <Modal
+      visible={showSwimmingGame}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={() => setShowSwimmingGame(false)}
+    >
+      <SwimmingGame
+        character={swimmingCharacter}
+        onClose={() => setShowSwimmingGame(false)}
+        onRoundComplete={(s) => {
+          setDailyRounds((c) => c + 1);
+          announce('Brawo, przepłynąłeś rzekę');
+          showFeedback('Brawo!');
+        }}
+      />
     </Modal>
 
     </Animated.View>
@@ -2183,6 +2130,13 @@ const styles = StyleSheet.create({
   },
   characterSelectEmoji: {
     fontSize: 48,
+  },
+  characterSelectFace: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
   },
   characterSelectLabel: {
     fontSize: 16,

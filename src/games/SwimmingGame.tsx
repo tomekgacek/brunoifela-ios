@@ -3,284 +3,337 @@ import {
   View,
   Text,
   StyleSheet,
-  Animated,
+  Image,
+  ImageBackground,
   Pressable,
-  Dimensions,
+  useWindowDimensions,
+  Animated,
 } from 'react-native';
 
-export interface SwimmingGameProps {
-  character: 'bruno' | 'fela';
-  lives: number;
-  score: number;
-  isPlaying: boolean;
-  onGameOver: (finalScore: number) => void;
-  onLivesChange: (newLives: number) => void;
-  onScoreChange: (newScore: number) => void;
-}
+const brunoRiverImage = require('../../assets/game/Rzeka_Bruno.png');
+const felaRiverImage = require('../../assets/game/Rzeka_Fela.png');
+const brunoFaceImg = require('../../assets/game/landing-page/Bruno.png');
+const felaFaceImg = require('../../assets/game/landing-page/Fela.png');
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height - 100; // Leave room for UI
-const LANE_WIDTH = SCREEN_WIDTH / 3;
-const LANE_HEIGHT = SCREEN_HEIGHT;
-const PLAYER_SIZE = 50;
-const OBSTACLE_SIZE = 45;
-const PLAYER_START_LANE = 1; // Middle lane (0=left, 1=middle, 2=right)
-const OBSTACLE_SPEED = 6;
-const SPAWN_RATE = 800; // ms between obstacle spawns
+// Lane positions as fraction of screen width (matches river image layout)
+// River occupies ~20%-80% of image width; dividers at ~35% and ~65%
+const LANE_X_FRACTIONS = [0.275, 0.50, 0.725];
+
+// Player sits at 75% down the screen (fixed position, only moves horizontally)
+const PLAYER_Y_FRACTION = 0.74;
+const PLAYER_SIZE = 68;
+const OBSTACLE_SIZE = 54;
+const OBSTACLE_SPEED = 5;
+const FRAME_MS = 30;
+const SPAWN_MS = 1100;
+
+type ObstacleType = 'log' | 'rock' | 'lilypad';
 
 interface Obstacle {
   id: number;
   lane: number;
   y: number;
-  type: 'log' | 'rock' | 'lilypad';
+  type: ObstacleType;
+}
+
+export interface SwimmingGameProps {
+  character: 'bruno' | 'fela';
+  onClose: () => void;
+  onRoundComplete: (score: number) => void;
 }
 
 export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   character,
-  lives,
-  score,
-  isPlaying,
-  onGameOver,
-  onLivesChange,
-  onScoreChange,
+  onClose,
+  onRoundComplete,
 }) => {
-  const [playerLane, setPlayerLane] = useState(PLAYER_START_LANE);
+  const { width: W, height: H } = useWindowDimensions();
+
+  const [playerLane, setPlayerLane] = useState(1);
+  const playerLaneRef = useRef(1);
+
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
+  const [lives, setLives] = useState(3);
+  const [score, setScore] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [bestScore, setBestScore] = useState(0);
+
+  const livesRef = useRef(3);
+  const scoreRef = useRef(0);
+  const gameOverRef = useRef(false);
   const obstacleIdRef = useRef(0);
-  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
-  const spawnLoopRef = useRef<NodeJS.Timeout | null>(null);
-  const collisionCheckRef = useRef<NodeJS.Timeout | null>(null);
-  const playerYRef = useRef(SCREEN_HEIGHT - PLAYER_SIZE - 40);
-  const scoresPassedRef = useRef(0);
 
-  const playerY = playerYRef.current;
+  const hitFlash = useRef(new Animated.Value(0)).current;
 
-  // Spawn obstacles at random lanes
+  const playerX = W * LANE_X_FRACTIONS[playerLane] - PLAYER_SIZE / 2;
+  const playerY = H * PLAYER_Y_FRACTION;
+
+  const triggerHit = useCallback(() => {
+    hitFlash.setValue(0.6);
+    Animated.timing(hitFlash, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+  }, [hitFlash]);
+
+  const endGame = useCallback((finalScore: number) => {
+    gameOverRef.current = true;
+    setGameOver(true);
+    setBestScore((prev) => Math.max(prev, finalScore));
+    onRoundComplete(finalScore);
+  }, [onRoundComplete]);
+
+  // Spawn obstacle
   const spawnObstacle = useCallback(() => {
-    if (!isPlaying) return;
-
-    const obstacleTypes: Array<'log' | 'rock' | 'lilypad'> = [
-      'log',
-      'rock',
-      'lilypad',
-    ];
-    const randomLane = Math.floor(Math.random() * 3);
-    const randomType =
-      obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
-
+    if (gameOverRef.current) return;
+    const types: ObstacleType[] = ['log', 'rock', 'lilypad'];
+    const lane = Math.floor(Math.random() * 3);
+    const type = types[Math.floor(Math.random() * types.length)];
     setObstacles((prev) => [
       ...prev,
-      {
-        id: obstacleIdRef.current++,
-        lane: randomLane,
-        y: -OBSTACLE_SIZE,
-        type: randomType,
-      },
+      { id: obstacleIdRef.current++, lane, y: -OBSTACLE_SIZE, type },
     ]);
-  }, [isPlaying]);
+  }, []);
 
-  // Game loop: move obstacles down
+  // Game loop
   useEffect(() => {
-    if (!isPlaying) return;
+    if (gameOver) return;
 
-    gameLoopRef.current = setInterval(() => {
+    const loop = setInterval(() => {
+      if (gameOverRef.current) return;
       setObstacles((prev) => {
+        const currentLane = playerLaneRef.current;
+        const pY = H * PLAYER_Y_FRACTION;
+        let hitOccurred = false;
+
         const updated = prev
-          .map((obs) => ({
-            ...obs,
-            y: obs.y + OBSTACLE_SPEED,
-          }))
+          .map((obs) => ({ ...obs, y: obs.y + OBSTACLE_SPEED }))
           .filter((obs) => {
-            // Check if obstacle passed the player without collision
-            if (obs.y > playerY + PLAYER_SIZE && obs.y < playerY + PLAYER_SIZE + 20) {
-              if (obs.lane !== playerLane) {
-                scoresPassedRef.current += 1;
-                onScoreChange(scoresPassedRef.current);
+            if (obs.y > pY + PLAYER_SIZE && obs.y < pY + PLAYER_SIZE + OBSTACLE_SPEED + 2) {
+              if (obs.lane !== currentLane) {
+                scoreRef.current += 1;
+                setScore(scoreRef.current);
               }
             }
-            // Remove if off-screen
-            return obs.y < SCREEN_HEIGHT + OBSTACLE_SIZE;
+            return obs.y < H + OBSTACLE_SIZE;
+          })
+          .filter((obs) => {
+            const collides =
+              obs.lane === currentLane &&
+              obs.y + OBSTACLE_SIZE > pY + 10 &&
+              obs.y < pY + PLAYER_SIZE - 10;
+            if (collides) hitOccurred = true;
+            return !collides;
           });
+
+        if (hitOccurred && !gameOverRef.current) {
+          const newLives = livesRef.current - 1;
+          livesRef.current = newLives;
+          setLives(newLives);
+          if (newLives <= 0) {
+            endGame(scoreRef.current);
+          } else {
+            triggerHit();
+          }
+        }
 
         return updated;
       });
-    }, 30);
+    }, FRAME_MS);
 
-    return () => {
-      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
-    };
-  }, [isPlaying, playerLane, playerY, onScoreChange]);
+    return () => clearInterval(loop);
+  }, [gameOver, H, triggerHit, endGame]);
 
-  // Spawn obstacles periodically
+  // Spawn loop
   useEffect(() => {
-    if (!isPlaying) return;
-
-    spawnLoopRef.current = setInterval(spawnObstacle, SPAWN_RATE);
-
-    return () => {
-      if (spawnLoopRef.current) clearInterval(spawnLoopRef.current);
-    };
-  }, [isPlaying, spawnObstacle]);
-
-  // Collision detection
-  useEffect(() => {
-    if (!isPlaying || lives <= 0) return;
-
-    collisionCheckRef.current = setInterval(() => {
-      setObstacles((prev) => {
-        // Check for collisions with current obstacles
-        const collision = prev.some(
-          (obs) =>
-            obs.lane === playerLane &&
-            obs.y < playerY + PLAYER_SIZE &&
-            obs.y + OBSTACLE_SIZE > playerY
-        );
-
-        if (collision) {
-          // Collision detected
-          const newLives = lives - 1;
-          onLivesChange(newLives);
-
-          if (newLives <= 0) {
-            onGameOver(scoresPassedRef.current);
-          }
-
-          // Clear obstacles for impact effect
-          return [];
-        }
-
-        return prev;
-      });
-    }, 50);
-
-    return () => {
-      if (collisionCheckRef.current) clearInterval(collisionCheckRef.current);
-    };
-  }, [isPlaying, lives, playerLane, playerY, onLivesChange, onGameOver]);
-
-  // Cleanup on unmount or when game ends
-  useEffect(() => {
-    return () => {
-      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
-      if (spawnLoopRef.current) clearInterval(spawnLoopRef.current);
-      if (collisionCheckRef.current) clearInterval(collisionCheckRef.current);
-    };
-  }, []);
+    if (gameOver) return;
+    const spawn = setInterval(spawnObstacle, SPAWN_MS);
+    return () => clearInterval(spawn);
+  }, [gameOver, spawnObstacle]);
 
   const moveLeft = () => {
-    if (playerLane > 0) setPlayerLane(playerLane - 1);
+    setPlayerLane((prev) => {
+      const next = Math.max(0, prev - 1);
+      playerLaneRef.current = next;
+      return next;
+    });
   };
 
   const moveRight = () => {
-    if (playerLane < 2) setPlayerLane(playerLane + 1);
+    setPlayerLane((prev) => {
+      const next = Math.min(2, prev + 1);
+      playerLaneRef.current = next;
+      return next;
+    });
   };
 
-  const playerXPos = playerLane * LANE_WIDTH + LANE_WIDTH / 2 - PLAYER_SIZE / 2;
-
-  const getObstacleEmoji = (type: 'log' | 'rock' | 'lilypad') => {
-    switch (type) {
-      case 'log':
-        return '🪵';
-      case 'rock':
-        return '🪨';
-      case 'lilypad':
-        return '🌿';
-      default:
-        return '●';
-    }
+  const restartGame = () => {
+    setObstacles([]);
+    setLives(3);
+    livesRef.current = 3;
+    setScore(0);
+    scoreRef.current = 0;
+    setPlayerLane(1);
+    playerLaneRef.current = 1;
+    gameOverRef.current = false;
+    setGameOver(false);
   };
+
+  const obstacleEmoji = (type: ObstacleType) => {
+    if (type === 'log') return '🪵';
+    if (type === 'rock') return '🪨';
+    return '🌿';
+  };
+
+  const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, 3 - lives));
+  const bgImage = character === 'bruno' ? brunoRiverImage : felaRiverImage;
+  const faceImg = character === 'bruno' ? brunoFaceImg : felaFaceImg;
 
   return (
-    <View style={styles.container}>
-      {/* River background */}
-      <View style={styles.river}>
-        {/* Lane dividers */}
-        <View style={[styles.laneHalf, styles.laneHalfLeft]} />
-        <View style={[styles.laneHalf, styles.laneHalfRight]} />
+    <ImageBackground source={bgImage} style={styles.fullscreen} resizeMode="cover">
 
-        {/* Obstacles */}
-        {obstacles.map((obs) => (
-          <View
-            key={obs.id}
-            style={[
-              styles.obstacle,
-              {
-                left: obs.lane * LANE_WIDTH + LANE_WIDTH / 2 - OBSTACLE_SIZE / 2,
-                top: obs.y,
-              },
-            ]}
-          >
-            <Text style={styles.obstacleEmoji}>
-              {getObstacleEmoji(obs.type)}
-            </Text>
-          </View>
-        ))}
+      {/* Hit flash overlay */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.hitOverlay, { opacity: hitFlash }]}
+      />
 
-        {/* Player */}
+      {/* Lives overlay top-left */}
+      <View style={styles.livesOverlay}>
+        <Text style={styles.livesText}>{heartStr}</Text>
+      </View>
+
+      {/* Score overlay top-right */}
+      <View style={styles.scoreOverlay}>
+        <Text style={styles.scoreText}>⭐ {score}</Text>
+      </View>
+
+      {/* Close button */}
+      <Pressable style={styles.closeBtn} onPress={onClose}>
+        <Text style={styles.closeBtnText}>✕</Text>
+      </Pressable>
+
+      {/* Obstacles */}
+      {!gameOver && obstacles.map((obs) => (
         <View
+          key={obs.id}
           style={[
-            styles.player,
+            styles.obstacle,
             {
-              left: playerXPos,
-              top: playerY,
+              left: W * LANE_X_FRACTIONS[obs.lane] - OBSTACLE_SIZE / 2,
+              top: obs.y,
             },
           ]}
         >
-          <Text style={styles.playerContent}>
-            {character === 'bruno' ? '🧸' : '🧚'}
-          </Text>
+          <Text style={styles.obstacleText}>{obstacleEmoji(obs.type)}</Text>
         </View>
-      </View>
+      ))}
 
-      {/* Controls */}
-      <View style={styles.controls}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.controlBtn,
-            pressed && styles.controlBtnPressed,
-          ]}
-          onPress={moveLeft}
-        >
-          <Text style={styles.controlBtnText}>←</Text>
-        </Pressable>
+      {/* Player */}
+      {!gameOver && (
+        <Image
+          source={faceImg}
+          style={[styles.player, { left: playerX, top: playerY }]}
+          resizeMode="cover"
+        />
+      )}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.controlBtn,
-            pressed && styles.controlBtnPressed,
-          ]}
-          onPress={moveRight}
-        >
-          <Text style={styles.controlBtnText}>→</Text>
-        </Pressable>
-      </View>
-    </View>
+      {/* Game Over */}
+      {gameOver && (
+        <View style={styles.gameOverOverlay}>
+          <View style={styles.gameOverCard}>
+            <Text style={styles.gameOverEmoji}>🏊</Text>
+            <Text style={styles.gameOverTitle}>Koniec gry!</Text>
+            <Text style={styles.gameOverScore}>Wynik: {score} ominiętych przeszkód</Text>
+            {score > 0 && score >= bestScore && (
+              <Text style={styles.gameOverRecord}>🏆 Nowy rekord!</Text>
+            )}
+            <Pressable style={styles.gameOverBtn} onPress={restartGame}>
+              <Text style={styles.gameOverBtnText}>Zagraj ponownie</Text>
+            </Pressable>
+            <Pressable style={[styles.gameOverBtn, styles.gameOverBtnSecondary]} onPress={onClose}>
+              <Text style={styles.gameOverBtnTextSecondary}>Wróć do menu</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Arrow controls */}
+      {!gameOver && (
+        <View style={styles.controls}>
+          <Pressable
+            style={({ pressed }) => [styles.arrowBtn, pressed && styles.arrowBtnPressed]}
+            onPress={moveLeft}
+          >
+            <Text style={styles.arrowText}>←</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.arrowBtn, pressed && styles.arrowBtnPressed]}
+            onPress={moveRight}
+          >
+            <Text style={styles.arrowText}>→</Text>
+          </Pressable>
+        </View>
+      )}
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  fullscreen: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
   },
-  river: {
-    flex: 1,
-    backgroundColor: '#16a085',
-    position: 'relative',
-    overflow: 'hidden',
+  hitOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#ff0000',
   },
-  laneHalf: {
+  livesOverlay: {
     position: 'absolute',
-    width: 2,
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    top: 0,
+    top: '5%',
+    left: '3%',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  laneHalfLeft: {
-    left: '33.33%',
+  livesText: {
+    fontSize: 22,
   },
-  laneHalfRight: {
-    left: '66.66%',
+  scoreOverlay: {
+    position: 'absolute',
+    top: '5%',
+    right: '3%',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: '5%',
+    alignSelf: 'center',
+    left: '46%',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 18,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  player: {
+    position: 'absolute',
+    width: PLAYER_SIZE,
+    height: PLAYER_SIZE,
+    borderRadius: PLAYER_SIZE / 2,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   obstacle: {
     position: 'absolute',
@@ -289,41 +342,96 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  obstacleEmoji: {
-    fontSize: 36,
-  },
-  player: {
-    position: 'absolute',
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playerContent: {
+  obstacleText: {
     fontSize: 40,
   },
   controls: {
+    position: 'absolute',
+    bottom: '5%',
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 20,
+    paddingHorizontal: '8%',
   },
-  controlBtn: {
-    flex: 1,
-    height: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 30,
+  arrowBtn: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  controlBtnPressed: {
-    backgroundColor: 'rgba(200, 200, 200, 0.8)',
-    transform: [{ scale: 0.95 }],
+  arrowBtnPressed: {
+    backgroundColor: 'rgba(200,200,200,0.9)',
+    transform: [{ scale: 0.92 }],
   },
-  controlBtnText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
+  arrowText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#333',
+  },
+  gameOverOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  gameOverCard: {
+    backgroundColor: '#fff8e8',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 340,
+  },
+  gameOverEmoji: {
+    fontSize: 56,
+  },
+  gameOverTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#3f2d17',
+  },
+  gameOverScore: {
+    fontSize: 16,
+    color: '#5d4a2f',
+    textAlign: 'center',
+  },
+  gameOverRecord: {
+    fontSize: 16,
+    color: '#d4a017',
+    fontWeight: '800',
+  },
+  gameOverBtn: {
+    width: '100%',
+    backgroundColor: '#cb3f45',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  gameOverBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  gameOverBtnSecondary: {
+    backgroundColor: '#f0e6d0',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  gameOverBtnTextSecondary: {
+    color: '#5d4a2f',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });
