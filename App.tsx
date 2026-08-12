@@ -21,6 +21,7 @@ import { allQuizzes } from './src/data/quiz';
 import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './src/games/match3';
 import { PuzzleGame } from './src/games/PuzzleGame';
 import { ColoringGame } from './src/games/ColoringGame';
+import { SwimmingGame } from './src/games/SwimmingGame';
 
 const mapImage = require('./assets/game/mapa.jpeg');
 const mapaS02Image = require('./assets/game/mapa_s02.png');
@@ -48,7 +49,7 @@ const MENU_W = 1117, MENU_H = 1408;
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
-type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki';
+type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie';
 
 // Hit-areas as fractions of Bruno_Fela_2.png (1117x1408).
 // Tuned to the four speech-bubble buttons: Odcinki (top-left), Quiz (top-right),
@@ -148,6 +149,15 @@ export default function App() {
   const [hintCells, setHintCells] = useState<{ from: CellPos; to: CellPos } | null>(null);
   const [matchHints, setMatchHints] = useState(3);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Swimming game state
+  const [showSwimmingCharacterSelect, setShowSwimmingCharacterSelect] = useState(false);
+  const [swimmingCharacter, setSwimmingCharacter] = useState<'bruno' | 'fela'>('bruno');
+  const [swimmingLives, setSwimmingLives] = useState(3);
+  const [swimmingScore, setSwimmingScore] = useState(0);
+  const [swimmingPlaying, setSwimmingPlaying] = useState(false);
+  const [swimmingGameOver, setSwimmingGameOver] = useState(false);
+  const [swimmingBest, setSwimmingBest] = useState(0);
 
   // Animate in when screen changes
   useEffect(() => {
@@ -956,6 +966,7 @@ export default function App() {
                   { id: 'match3', label: 'Kafelki' },
                   { id: 'puzzle', label: 'Puzzle' },
                   { id: 'kolorowanki', label: 'Kolorowanki' },
+                  { id: 'pływanie', label: 'Przepłyn Rzekę!' },
                 ] as { id: GameTab; label: string }[]
               ).map((g) => (
                 <Pressable
@@ -963,7 +974,11 @@ export default function App() {
                   style={[styles.gameTab, activeGameTab === g.id && styles.gameTabActive]}
                   onPress={() => {
                     setActiveGameTab(g.id);
-                    setFullscreenGame(g.id);
+                    if (g.id === 'pływanie') {
+                      setShowSwimmingCharacterSelect(true);
+                    } else {
+                      setFullscreenGame(g.id);
+                    }
                   }}
                 >
                   <Text style={[styles.gameTabText, activeGameTab === g.id && styles.gameTabTextActive]}>
@@ -991,7 +1006,8 @@ export default function App() {
             <Text style={styles.fsTitle}>
               {fullscreenGame === 'zrecznosciowa' ? 'Łap Bruna i Felę!' :
                fullscreenGame === 'match3' ? 'Kafelki' :
-               fullscreenGame === 'puzzle' ? 'Puzzle' : 'Kolorowanki'}
+               fullscreenGame === 'puzzle' ? 'Puzzle' :
+               fullscreenGame === 'pływanie' ? 'Przepłyn Rzekę!' : 'Kolorowanki'}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
               <Text style={styles.fsCloseBtnText}>✕ Zamknij</Text>
@@ -1204,9 +1220,117 @@ export default function App() {
                 />
               </View>
             )}
+
+            {fullscreenGame === 'pływanie' && (
+              <View style={styles.nextSeasonCard}>
+                {swimmingGameOver ? (
+                  <View style={styles.gameEndCard}>
+                    <Text style={styles.gameEndEmoji}>🏊</Text>
+                    <Text style={styles.gameEndTitle}>Koniec gry!</Text>
+                    <Text style={styles.gameEndScore}>Twój wynik: {swimmingScore} ominiętych przeszkód</Text>
+                    {swimmingScore > 0 && swimmingScore >= swimmingBest && (
+                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
+                    )}
+                    <View style={styles.gameEndButtons}>
+                      <Pressable 
+                        style={styles.gameEndBtn} 
+                        onPress={() => {
+                          setSwimmingScore(0);
+                          setSwimmingLives(3);
+                          setSwimmingGameOver(false);
+                          setSwimmingPlaying(true);
+                        }}
+                      >
+                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} 
+                        onPress={() => {
+                          setSwimmingGameOver(false);
+                          setFullscreenGame(null);
+                        }}
+                      >
+                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.swimmingUIRow}>
+                      <Text style={styles.swimmingUIText}>❤️ Życia: {swimmingLives}</Text>
+                      <Text style={styles.swimmingUIText}>⭐ Wynik: {swimmingScore} | Rekord: {swimmingBest}</Text>
+                    </View>
+                    <SwimmingGame
+                      character={swimmingCharacter}
+                      lives={swimmingLives}
+                      score={swimmingScore}
+                      isPlaying={swimmingPlaying}
+                      onGameOver={(finalScore) => {
+                        if (finalScore > swimmingBest) {
+                          setSwimmingBest(finalScore);
+                          announce('Nowy rekord');
+                          showFeedback('Nowy rekord!');
+                        }
+                        setSwimmingGameOver(true);
+                        setSwimmingPlaying(false);
+                      }}
+                      onLivesChange={setSwimmingLives}
+                      onScoreChange={setSwimmingScore}
+                    />
+                  </>
+                )}
+              </View>
+            )}
           </ScrollView>
         </SafeAreaView>
       </ImageBackground>
+    </Modal>
+
+    {/* Swimming character selection modal */}
+    <Modal
+      visible={showSwimmingCharacterSelect}
+      animationType="fade"
+      transparent
+      statusBarTranslucent
+      onRequestClose={() => setShowSwimmingCharacterSelect(false)}
+    >
+      <View style={styles.characterSelectOverlay}>
+        <View style={styles.characterSelectCard}>
+          <Text style={styles.characterSelectTitle}>Wybierz postać</Text>
+          <View style={styles.characterSelectRow}>
+            <Pressable
+              style={styles.characterSelectBtn}
+              onPress={() => {
+                setSwimmingCharacter('bruno');
+                setSwimmingScore(0);
+                setSwimmingLives(3);
+                setSwimmingGameOver(false);
+                setSwimmingPlaying(true);
+                setShowSwimmingCharacterSelect(false);
+                setFullscreenGame('pływanie');
+              }}
+            >
+              <Text style={styles.characterSelectEmoji}>🧸</Text>
+              <Text style={styles.characterSelectLabel}>Bruno</Text>
+            </Pressable>
+            <Pressable
+              style={styles.characterSelectBtn}
+              onPress={() => {
+                setSwimmingCharacter('fela');
+                setSwimmingScore(0);
+                setSwimmingLives(3);
+                setSwimmingGameOver(false);
+                setSwimmingPlaying(true);
+                setShowSwimmingCharacterSelect(false);
+                setFullscreenGame('pływanie');
+              }}
+            >
+              <Text style={styles.characterSelectEmoji}>🧚</Text>
+              <Text style={styles.characterSelectLabel}>Fela</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
     </Modal>
 
     </Animated.View>
@@ -2003,5 +2127,66 @@ const styles = StyleSheet.create({
   fsCloseBtnText: {
     color: '#ffffff',
     fontWeight: '800',
+  },
+  swimmingUIRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff8e8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#efd8a2',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  swimmingUIText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#3f2d17',
+  },
+  characterSelectOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  characterSelectCard: {
+    backgroundColor: '#fff8e8',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
+    padding: 24,
+    gap: 20,
+  },
+  characterSelectTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#3f2d17',
+    textAlign: 'center',
+  },
+  characterSelectRow: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'center',
+  },
+  characterSelectBtn: {
+    backgroundColor: '#fff0e8',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  characterSelectEmoji: {
+    fontSize: 48,
+  },
+  characterSelectLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#402b15',
   },
 });
