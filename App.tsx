@@ -1317,9 +1317,8 @@ export default function App() {
         character={swimmingCharacter}
         initialDifficulty={swimmingDifficulty}
         onClose={() => setShowSwimmingGame(false)}
-        onRoundComplete={(s) => {
+        onRoundComplete={() => {
           setDailyRounds((c) => c + 1);
-          announce('Brawo, przepłynąłeś rzekę');
           showFeedback('Brawo!');
         }}
       />
