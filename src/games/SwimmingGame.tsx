@@ -4,13 +4,13 @@ import {
   Text,
   StyleSheet,
   Image,
-  ImageBackground,
   Pressable,
   useWindowDimensions,
   Animated,
 } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 
-const riverImage = require('../../assets/game/rzeka.png');
+const riverVideo = require('../../assets/game/rzeka_plynie.mp4');
 const brunoFaceImg = require('../../assets/game/Bruno_w_wodzie.png');
 const felaFaceImg = require('../../assets/game/Fela_w_wodzie.png');
 
@@ -18,9 +18,11 @@ const felaFaceImg = require('../../assets/game/Fela_w_wodzie.png');
 // River occupies ~20%-80% of image width; dividers at ~35% and ~65%
 const LANE_X_FRACTIONS = [0.275, 0.50, 0.725];
 
-// Player sits at 75% down the screen (fixed position, only moves horizontally)
-const PLAYER_Y_FRACTION = 0.74;
-const PLAYER_SIZE = 68;
+// Bottom-anchor the swimmer so tall transparent sprites sit naturally in the lane.
+const PLAYER_BASELINE_FRACTION = 0.82;
+const PLAYER_HEIGHT_FRACTION = 0.26;
+const MIN_PLAYER_HEIGHT = 128;
+const MAX_PLAYER_HEIGHT = 190;
 const OBSTACLE_SIZE = 54;
 const OBSTACLE_SPEED = 5;
 const FRAME_MS = 30;
@@ -64,8 +66,18 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
 
   const hitFlash = useRef(new Animated.Value(0)).current;
 
-  const playerX = W * LANE_X_FRACTIONS[playerLane] - PLAYER_SIZE / 2;
-  const playerY = H * PLAYER_Y_FRACTION;
+  const faceImg = character === 'bruno' ? brunoFaceImg : felaFaceImg;
+  const faceAsset = Image.resolveAssetSource(faceImg);
+  const spriteAspectRatio = faceAsset.width > 0 && faceAsset.height > 0
+    ? faceAsset.width / faceAsset.height
+    : 0.7;
+  const playerHeight = Math.max(
+    MIN_PLAYER_HEIGHT,
+    Math.min(MAX_PLAYER_HEIGHT, H * PLAYER_HEIGHT_FRACTION),
+  );
+  const playerWidth = playerHeight * spriteAspectRatio;
+  const playerX = W * LANE_X_FRACTIONS[playerLane] - playerWidth / 2;
+  const playerY = H * PLAYER_BASELINE_FRACTION - playerHeight;
 
   const triggerHit = useCallback(() => {
     hitFlash.setValue(0.6);
@@ -99,13 +111,13 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
       if (gameOverRef.current) return;
       setObstacles((prev) => {
         const currentLane = playerLaneRef.current;
-        const pY = H * PLAYER_Y_FRACTION;
+        const pY = H * PLAYER_BASELINE_FRACTION - playerHeight;
         let hitOccurred = false;
 
         const updated = prev
           .map((obs) => ({ ...obs, y: obs.y + OBSTACLE_SPEED }))
           .filter((obs) => {
-            if (obs.y > pY + PLAYER_SIZE && obs.y < pY + PLAYER_SIZE + OBSTACLE_SPEED + 2) {
+            if (obs.y > pY + playerHeight && obs.y < pY + playerHeight + OBSTACLE_SPEED + 2) {
               if (obs.lane !== currentLane) {
                 scoreRef.current += 1;
                 setScore(scoreRef.current);
@@ -117,7 +129,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
             const collides =
               obs.lane === currentLane &&
               obs.y + OBSTACLE_SIZE > pY + 10 &&
-              obs.y < pY + PLAYER_SIZE - 10;
+              obs.y < pY + playerHeight - 18;
             if (collides) hitOccurred = true;
             return !collides;
           });
@@ -138,7 +150,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     }, FRAME_MS);
 
     return () => clearInterval(loop);
-  }, [gameOver, H, triggerHit, endGame]);
+  }, [gameOver, H, playerHeight, triggerHit, endGame]);
 
   // Spawn loop
   useEffect(() => {
@@ -182,11 +194,21 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   };
 
   const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, 3 - lives));
-  const bgImage = riverImage;
-  const faceImg = character === 'bruno' ? brunoFaceImg : felaFaceImg;
+  const riverPlayer = useVideoPlayer(riverVideo, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
 
   return (
-    <ImageBackground source={bgImage} style={styles.fullscreen} resizeMode="cover">
+    <View style={styles.fullscreen}>
+      <VideoView
+        player={riverPlayer}
+        style={StyleSheet.absoluteFillObject}
+        nativeControls={false}
+        contentFit="cover"
+        pointerEvents="none"
+      />
 
       {/* Hit flash overlay */}
       <Animated.View
@@ -229,8 +251,16 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
       {!gameOver && (
         <Image
           source={faceImg}
-          style={[styles.player, { left: playerX, top: playerY }]}
-          resizeMode="cover"
+          style={[
+            styles.player,
+            {
+              left: playerX,
+              top: playerY,
+              width: playerWidth,
+              height: playerHeight,
+            },
+          ]}
+          resizeMode="contain"
         />
       )}
 
@@ -271,7 +301,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
           </Pressable>
         </View>
       )}
-    </ImageBackground>
+    </View>
   );
 };
 
@@ -328,11 +358,6 @@ const styles = StyleSheet.create({
   },
   player: {
     position: 'absolute',
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-    borderRadius: PLAYER_SIZE / 2,
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   obstacle: {
     position: 'absolute',
