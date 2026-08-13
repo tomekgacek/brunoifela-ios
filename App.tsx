@@ -152,7 +152,9 @@ export default function App() {
 
   // Swimming game state
   const [showSwimmingCharacterSelect, setShowSwimmingCharacterSelect] = useState(false);
+  const [showSwimmingDifficultySelect, setShowSwimmingDifficultySelect] = useState(false);
   const [swimmingCharacter, setSwimmingCharacter] = useState<'bruno' | 'fela'>('bruno');
+  const [swimmingDifficulty, setSwimmingDifficulty] = useState<'easy' | 'normal'>('normal');
   const [showSwimmingGame, setShowSwimmingGame] = useState(false);
 
   // Animate in when screen changes
@@ -958,12 +960,12 @@ export default function App() {
             <View style={styles.gameTabsGrid}>
               {(
                 [
-                  { id: 'zrecznosciowa', label: 'Łap Bruna i Felę!' },
-                  { id: 'match3', label: 'Kafelki' },
-                  { id: 'puzzle', label: 'Puzzle' },
-                  { id: 'kolorowanki', label: 'Kolorowanki' },
-                  { id: 'pływanie', label: 'Przepłyn Rzekę!' },
-                ] as { id: GameTab; label: string }[]
+                  { id: 'zrecznosciowa', label: 'Łap Bruna i Felę!', icon: '🎯', hint: 'Refleks i szybkie tapnięcia' },
+                  { id: 'match3', label: 'Kafelki', icon: '💎', hint: 'Łącz 3+ obrazki i zbieraj punkty' },
+                  { id: 'puzzle', label: 'Puzzle', icon: '🧩', hint: 'Ułóż obrazek krok po kroku' },
+                  { id: 'kolorowanki', label: 'Kolorowanki', icon: '🎨', hint: 'Pokoloruj sceny Bruna i Feli' },
+                  { id: 'pływanie', label: 'Przepłyn Rzekę!', icon: '🏊', hint: 'Omijaj przeszkody i płyń dalej' },
+                ] as { id: GameTab; label: string; icon: string; hint: string }[]
               ).map((g) => (
                 <Pressable
                   key={g.id}
@@ -977,8 +979,12 @@ export default function App() {
                     }
                   }}
                 >
+                  <Text style={styles.gameTabIcon}>{g.icon}</Text>
                   <Text style={[styles.gameTabText, activeGameTab === g.id && styles.gameTabTextActive]}>
                     {g.label}
+                  </Text>
+                  <Text style={[styles.gameTabHint, activeGameTab === g.id && styles.gameTabHintActive]}>
+                    {g.hint}
                   </Text>
                 </Pressable>
               ))}
@@ -1240,7 +1246,7 @@ export default function App() {
               onPress={() => {
                 setSwimmingCharacter('bruno');
                 setShowSwimmingCharacterSelect(false);
-                setShowSwimmingGame(true);
+                setShowSwimmingDifficultySelect(true);
               }}
             >
               <Image source={brunoFaceImg} style={styles.characterSelectFace} />
@@ -1251,11 +1257,49 @@ export default function App() {
               onPress={() => {
                 setSwimmingCharacter('fela');
                 setShowSwimmingCharacterSelect(false);
-                setShowSwimmingGame(true);
+                setShowSwimmingDifficultySelect(true);
               }}
             >
               <Image source={felaFaceImg} style={styles.characterSelectFace} />
               <Text style={styles.characterSelectLabel}>Fela</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
+    <Modal
+      visible={showSwimmingDifficultySelect}
+      animationType="fade"
+      transparent
+      statusBarTranslucent
+      onRequestClose={() => setShowSwimmingDifficultySelect(false)}
+    >
+      <View style={styles.characterSelectOverlay}>
+        <View style={styles.characterSelectCard}>
+          <Text style={styles.characterSelectTitle}>Wybierz tryb</Text>
+          <View style={styles.characterSelectRow}>
+            <Pressable
+              style={styles.characterSelectBtn}
+              onPress={() => {
+                setSwimmingDifficulty('easy');
+                setShowSwimmingDifficultySelect(false);
+                setShowSwimmingGame(true);
+              }}
+            >
+              <Text style={styles.characterSelectEmoji}>🛟</Text>
+              <Text style={styles.characterSelectLabel}>Łatwy</Text>
+            </Pressable>
+            <Pressable
+              style={styles.characterSelectBtn}
+              onPress={() => {
+                setSwimmingDifficulty('normal');
+                setShowSwimmingDifficultySelect(false);
+                setShowSwimmingGame(true);
+              }}
+            >
+              <Text style={styles.characterSelectEmoji}>🌊</Text>
+              <Text style={styles.characterSelectLabel}>Normalny</Text>
             </Pressable>
           </View>
         </View>
@@ -1271,6 +1315,7 @@ export default function App() {
     >
       <SwimmingGame
         character={swimmingCharacter}
+        initialDifficulty={swimmingDifficulty}
         onClose={() => setShowSwimmingGame(false)}
         onRoundComplete={(s) => {
           setDailyRounds((c) => c + 1);
@@ -1768,28 +1813,50 @@ const styles = StyleSheet.create({
   gameTabsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   gameTab: {
     flexBasis: '47%',
     flexGrow: 1,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#e3c88f',
-    backgroundColor: '#fff9ea',
-    paddingVertical: 9,
+    backgroundColor: '#fff7e2',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     alignItems: 'center',
+    gap: 4,
+    shadowColor: '#8a5a2b',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   gameTabActive: {
     backgroundColor: '#cb3f45',
     borderColor: '#cb3f45',
+    transform: [{ scale: 1.02 }],
+  },
+  gameTabIcon: {
+    fontSize: 24,
   },
   gameTabText: {
     color: '#664d31',
     fontWeight: '800',
+    fontSize: 14,
+    textAlign: 'center',
   },
   gameTabTextActive: {
     color: '#fff',
+  },
+  gameTabHint: {
+    color: '#886c4d',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  gameTabHintActive: {
+    color: '#ffe9e9',
   },
   tapArena: {
     marginTop: 8,

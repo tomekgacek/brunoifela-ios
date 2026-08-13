@@ -11,6 +11,7 @@ import {
 import { VideoView, useVideoPlayer } from 'expo-video';
 
 const riverVideo = require('../../assets/game/rzeka_plynie.mp4');
+const riverImage = require('../../assets/game/rzeka.png');
 const brunoFaceImg = require('../../assets/game/Bruno_w_wodzie.png');
 const felaFaceImg = require('../../assets/game/Fela_w_wodzie.png');
 
@@ -20,13 +21,39 @@ const LANE_X_FRACTIONS = [0.275, 0.50, 0.725];
 
 // Bottom-anchor the swimmer so tall transparent sprites sit naturally in the lane.
 const PLAYER_BASELINE_FRACTION = 0.82;
-const PLAYER_HEIGHT_FRACTION = 0.26;
-const MIN_PLAYER_HEIGHT = 128;
-const MAX_PLAYER_HEIGHT = 190;
 const OBSTACLE_SIZE = 54;
-const OBSTACLE_SPEED = 5;
 const FRAME_MS = 30;
-const SPAWN_MS = 1100;
+
+type Difficulty = 'easy' | 'normal';
+
+const DIFFICULTY_CONFIG: Record<Difficulty, {
+  playerHeightFraction: number;
+  minPlayerHeight: number;
+  maxPlayerHeight: number;
+  collisionTopPad: number;
+  collisionBottomPad: number;
+  obstacleSpeed: number;
+  spawnMs: number;
+}> = {
+  easy: {
+    playerHeightFraction: 0.18,
+    minPlayerHeight: 88,
+    maxPlayerHeight: 132,
+    collisionTopPad: 22,
+    collisionBottomPad: 30,
+    obstacleSpeed: 4,
+    spawnMs: 1300,
+  },
+  normal: {
+    playerHeightFraction: 0.20,
+    minPlayerHeight: 96,
+    maxPlayerHeight: 148,
+    collisionTopPad: 16,
+    collisionBottomPad: 24,
+    obstacleSpeed: 5,
+    spawnMs: 1100,
+  },
+};
 
 type ObstacleType = 'log' | 'rock' | 'lilypad';
 
@@ -39,12 +66,14 @@ interface Obstacle {
 
 export interface SwimmingGameProps {
   character: 'bruno' | 'fela';
+  initialDifficulty?: Difficulty;
   onClose: () => void;
   onRoundComplete: (score: number) => void;
 }
 
 export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   character,
+  initialDifficulty = 'normal',
   onClose,
   onRoundComplete,
 }) => {
@@ -58,6 +87,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [bestScore, setBestScore] = useState(0);
+  const [difficulty] = useState<Difficulty>(initialDifficulty);
 
   const livesRef = useRef(3);
   const scoreRef = useRef(0);
@@ -65,6 +95,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   const obstacleIdRef = useRef(0);
 
   const hitFlash = useRef(new Animated.Value(0)).current;
+  const settings = DIFFICULTY_CONFIG[difficulty];
 
   const faceImg = character === 'bruno' ? brunoFaceImg : felaFaceImg;
   const faceAsset = Image.resolveAssetSource(faceImg);
@@ -72,8 +103,8 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     ? faceAsset.width / faceAsset.height
     : 0.7;
   const playerHeight = Math.max(
-    MIN_PLAYER_HEIGHT,
-    Math.min(MAX_PLAYER_HEIGHT, H * PLAYER_HEIGHT_FRACTION),
+    settings.minPlayerHeight,
+    Math.min(settings.maxPlayerHeight, H * settings.playerHeightFraction),
   );
   const playerWidth = playerHeight * spriteAspectRatio;
   const playerX = W * LANE_X_FRACTIONS[playerLane] - playerWidth / 2;
@@ -115,9 +146,9 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
         let hitOccurred = false;
 
         const updated = prev
-          .map((obs) => ({ ...obs, y: obs.y + OBSTACLE_SPEED }))
+          .map((obs) => ({ ...obs, y: obs.y + settings.obstacleSpeed }))
           .filter((obs) => {
-            if (obs.y > pY + playerHeight && obs.y < pY + playerHeight + OBSTACLE_SPEED + 2) {
+            if (obs.y > pY + playerHeight && obs.y < pY + playerHeight + settings.obstacleSpeed + 2) {
               if (obs.lane !== currentLane) {
                 scoreRef.current += 1;
                 setScore(scoreRef.current);
@@ -128,8 +159,8 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
           .filter((obs) => {
             const collides =
               obs.lane === currentLane &&
-              obs.y + OBSTACLE_SIZE > pY + 10 &&
-              obs.y < pY + playerHeight - 18;
+              obs.y + OBSTACLE_SIZE > pY + settings.collisionTopPad &&
+              obs.y < pY + playerHeight - settings.collisionBottomPad;
             if (collides) hitOccurred = true;
             return !collides;
           });
@@ -150,14 +181,14 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     }, FRAME_MS);
 
     return () => clearInterval(loop);
-  }, [gameOver, H, playerHeight, triggerHit, endGame]);
+  }, [gameOver, H, playerHeight, settings, triggerHit, endGame]);
 
   // Spawn loop
   useEffect(() => {
     if (gameOver) return;
-    const spawn = setInterval(spawnObstacle, SPAWN_MS);
+    const spawn = setInterval(spawnObstacle, settings.spawnMs);
     return () => clearInterval(spawn);
-  }, [gameOver, spawnObstacle]);
+  }, [gameOver, settings.spawnMs, spawnObstacle]);
 
   const moveLeft = () => {
     setPlayerLane((prev) => {
@@ -268,7 +299,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
       {gameOver && (
         <View style={styles.gameOverOverlay}>
           <View style={styles.gameOverCard}>
-            <Text style={styles.gameOverEmoji}>🏊</Text>
+            <Image source={riverImage} style={styles.gameOverRiverImage} resizeMode="cover" />
             <Text style={styles.gameOverTitle}>Koniec gry!</Text>
             <Text style={styles.gameOverScore}>Wynik: {score} ominiętych przeszkód</Text>
             {score > 0 && score >= bestScore && (
@@ -420,6 +451,13 @@ const styles = StyleSheet.create({
   },
   gameOverEmoji: {
     fontSize: 56,
+  },
+  gameOverRiverImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
   },
   gameOverTitle: {
     fontSize: 26,
