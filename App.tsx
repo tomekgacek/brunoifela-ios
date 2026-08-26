@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 import {
   Animated,
   Alert,
@@ -30,8 +31,26 @@ const felaImage = require('./assets/game/fela.jpeg');
 const splashImg = require('./assets/game/landing-page/Bruno_Fela_1.png');
 const menuImg = require('./assets/game/landing-page/Bruno_Fela_2.png');
 const dabBg = require('./assets/game/Dab.jpeg');
+const riverThumbImg = require('./assets/game/rzeka.png');
 const brunoFaceImg = require('./assets/game/landing-page/Bruno.png');
 const felaFaceImg  = require('./assets/game/landing-page/Fela.png');
+
+const VOICE_CLIPS: Record<string, number> = {
+  'Koniec rundy': require('./assets/voices/1_koniec_rundy.mp3'),
+  'Nowy rekord': require('./assets/voices/2_nowy_rekord.mp3'),
+  Start: require('./assets/voices/3_start.mp3'),
+  Brawo: require('./assets/voices/4_Brawo.mp3'),
+  'Super wynik': require('./assets/voices/5_super_wynik.mp3'),
+  'Dobra proba': require('./assets/voices/6_dorbra_proba.mp3'),
+  'Nowa plansza': require('./assets/voices/7_nowa_plansza.mp3'),
+  'Brak ruchow, nowa plansza': require('./assets/voices/8_brak_ruchow_nowa_plansza.mp3'),
+  'Koniec ruchow': require('./assets/voices/9_koniec_ruchow.mp3'),
+  Combo: require('./assets/voices/10_combo.mp3'),
+  Swietnie: require('./assets/voices/11_swietnie.mp3'),
+  'Postep zresetowany': require('./assets/voices/12_postep_zresetowany.mp3'),
+  'Brawo, puzzle rozwiazane': require('./assets/voices/13_brawo_puzzle_rozwiazane.mp3'),
+  'Swietny rysunek': require('./assets/voices/14_swietny_rysunek.mp3'),
+};
 
 // Images used as match-3 gems (one per cell type 0-4)
 const GEM_IMAGES = [
@@ -156,6 +175,7 @@ export default function App() {
   const [swimmingCharacter, setSwimmingCharacter] = useState<'bruno' | 'fela'>('bruno');
   const [swimmingDifficulty, setSwimmingDifficulty] = useState<'easy' | 'normal'>('normal');
   const [showSwimmingGame, setShowSwimmingGame] = useState(false);
+  const currentVoiceSoundRef = useRef<Audio.Sound | null>(null);
 
   // Animate in when screen changes
   useEffect(() => {
@@ -253,13 +273,52 @@ export default function App() {
   };
 
   const announce = (text: string) => {
-    Speech.stop();
-    Speech.speak(text, {
-      language: 'pl-PL',
-      rate: 1,
-      pitch: 1.05,
-    });
+    const playVoice = async () => {
+      try {
+        const clip = VOICE_CLIPS[text];
+        if (!clip) {
+          Speech.stop();
+          Speech.speak(text, {
+            language: 'pl-PL',
+            rate: 1,
+            pitch: 1.05,
+          });
+          return;
+        }
+
+        Speech.stop();
+
+        if (currentVoiceSoundRef.current) {
+          await currentVoiceSoundRef.current.stopAsync();
+          await currentVoiceSoundRef.current.unloadAsync();
+          currentVoiceSoundRef.current = null;
+        }
+
+        const { sound } = await Audio.Sound.createAsync(clip, {
+          shouldPlay: true,
+          isLooping: false,
+        });
+        currentVoiceSoundRef.current = sound;
+      } catch {
+        Speech.stop();
+        Speech.speak(text, {
+          language: 'pl-PL',
+          rate: 1,
+          pitch: 1.05,
+        });
+      }
+    };
+
+    void playVoice();
   };
+
+  useEffect(() => {
+    return () => {
+      if (currentVoiceSoundRef.current) {
+        void currentVoiceSoundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const showFeedback = (text: string) => {
     setFeedbackText(text);
@@ -964,8 +1023,14 @@ export default function App() {
                   { id: 'match3', label: 'Kafelki', icon: '💎', hint: 'Łącz 3+ obrazki i zbieraj punkty' },
                   { id: 'puzzle', label: 'Puzzle', icon: '🧩', hint: 'Ułóż obrazek krok po kroku' },
                   { id: 'kolorowanki', label: 'Kolorowanki', icon: '🎨', hint: 'Pokoloruj sceny Bruna i Feli' },
-                  { id: 'pływanie', label: 'Przepłyn Rzekę!', icon: '🏊', hint: 'Omijaj przeszkody i płyń dalej' },
-                ] as { id: GameTab; label: string; icon: string; hint: string }[]
+                  {
+                    id: 'pływanie',
+                    label: 'Przepłyn Rzekę!',
+                    icon: '🏊',
+                    image: riverThumbImg,
+                    hint: 'Omijaj przeszkody i płyń dalej',
+                  },
+                ] as { id: GameTab; label: string; icon: string; image?: number; hint: string }[]
               ).map((g) => (
                 <Pressable
                   key={g.id}
@@ -979,7 +1044,11 @@ export default function App() {
                     }
                   }}
                 >
-                  <Text style={styles.gameTabIcon}>{g.icon}</Text>
+                  {g.image ? (
+                    <Image source={g.image} style={styles.gameTabIconImage} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.gameTabIcon}>{g.icon}</Text>
+                  )}
                   <Text style={[styles.gameTabText, activeGameTab === g.id && styles.gameTabTextActive]}>
                     {g.label}
                   </Text>
@@ -1838,6 +1907,13 @@ const styles = StyleSheet.create({
   },
   gameTabIcon: {
     fontSize: 24,
+  },
+  gameTabIconImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#efd8a2',
   },
   gameTabText: {
     color: '#664d31',
