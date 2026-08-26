@@ -21,7 +21,7 @@ const LANE_X_FRACTIONS = [0.275, 0.50, 0.725];
 
 // Bottom-anchor the swimmer so tall transparent sprites sit naturally in the lane.
 const PLAYER_BASELINE_FRACTION = 0.82;
-const OBSTACLE_SIZE = 54;
+const OBSTACLE_SIZE = 74;
 const FRAME_MS = 30;
 
 type Difficulty = 'easy' | 'normal';
@@ -36,22 +36,22 @@ const DIFFICULTY_CONFIG: Record<Difficulty, {
   spawnMs: number;
 }> = {
   easy: {
-    playerHeightFraction: 0.18,
-    minPlayerHeight: 88,
-    maxPlayerHeight: 132,
+    playerHeightFraction: 0.155,
+    minPlayerHeight: 76,
+    maxPlayerHeight: 116,
     collisionTopPad: 22,
     collisionBottomPad: 30,
     obstacleSpeed: 3,
-    spawnMs: 1200,
+    spawnMs: 1650,
   },
   normal: {
-    playerHeightFraction: 0.18,
-    minPlayerHeight: 88,
-    maxPlayerHeight: 132,
+    playerHeightFraction: 0.155,
+    minPlayerHeight: 76,
+    maxPlayerHeight: 116,
     collisionTopPad: 22,
     collisionBottomPad: 30,
     obstacleSpeed: 4,
-    spawnMs: 1200,
+    spawnMs: 1500,
   },
 };
 
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   obstacleText: {
-    fontSize: 40,
+    fontSize: 52,
   },
   controls: {
     position: 'absolute',

@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
+  Linking,
   PanResponder,
   Pressable,
   ScrollView,
@@ -10,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as MediaLibrary from 'expo-media-library';
+import { captureRef } from 'react-native-view-shot';
 
 const PALETTE = [
   '#e53935', '#fb8c00', '#fdd835', '#43a047',
@@ -46,6 +50,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
   const [painted, setPainted] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const containerWidth = Math.max(100, screenW - 84);
   const cellW = containerWidth / COLS;
@@ -57,6 +62,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
   activeColorRef.current = activeColor;
   const doneRef = useRef(saved);
   doneRef.current = saved;
+  const canvasRef = useRef<View | null>(null);
 
   const paintAt = useCallback((lx: number, ly: number) => {
     if (doneRef.current) return;
@@ -103,13 +109,72 @@ export function ColoringGame({ onRoundComplete }: Props) {
     if (newIdx !== undefined) setImageIdx(newIdx);
   };
 
+  const askForMediaPermission = async () => {
+    const current = await MediaLibrary.getPermissionsAsync(true);
+    if (current.granted) {
+      return true;
+    }
+
+    const requested = await MediaLibrary.requestPermissionsAsync(true);
+    if (requested.granted) {
+      return true;
+    }
+
+    if (!requested.canAskAgain) {
+      Alert.alert(
+        'Brak dostepu do Zdjec',
+        'Aby zapisywac rysunki, wlacz dostep do Zdjec w ustawieniach iOS.',
+        [
+          { text: 'Anuluj', style: 'cancel' },
+          {
+            text: 'Ustawienia',
+            onPress: () => {
+              void Linking.openSettings();
+            },
+          },
+        ],
+      );
+    }
+
+    return false;
+  };
+
   const handleSave = async () => {
+    if (isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+
     try {
+      const hasPermission = await askForMediaPermission();
+      if (!hasPermission) {
+        setIsSaving(false);
+        return;
+      }
+
+      if (!canvasRef.current) {
+        throw new Error('canvas-not-ready');
+      }
+
+      const imageUri = await captureRef(canvasRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+
+      await MediaLibrary.saveToLibraryAsync(imageUri);
+
       const data = JSON.stringify({ imageIdx, painted });
       await AsyncStorage.setItem(STORAGE_KEY + '.' + imageIdx, data);
-    } catch {}
-    setSaved(true);
-    onRoundComplete();
+
+      setSaved(true);
+      onRoundComplete();
+    } catch {
+      Alert.alert('Nie udalo sie zapisac', 'Wystapil problem podczas zapisu rysunku do Zdjec. Sprobuj ponownie.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const filledCount = Object.keys(painted).length;
@@ -154,6 +219,9 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       {/* Painting canvas — drag to paint */}
       <View
+        ref={(node) => {
+          canvasRef.current = node;
+        }}
         style={[s.canvas, { width: containerWidth, height: gridH }]}
         {...panResponder.panHandlers}
       >
@@ -185,8 +253,8 @@ export function ColoringGame({ onRoundComplete }: Props) {
       </View>
 
       <View style={s.actions}>
-        <Pressable style={s.doneBtn} onPress={handleSave}>
-          <Text style={s.doneBtnText}>💾 Zapisz rysunek</Text>
+        <Pressable style={[s.doneBtn, isSaving && s.doneBtnDisabled]} onPress={handleSave} disabled={isSaving}>
+          <Text style={s.doneBtnText}>{isSaving ? 'Zapisywanie...' : '💾 Zapisz rysunek'}</Text>
         </Pressable>
         <Pressable style={s.resetBtn} onPress={() => resetColoring()}>
           <Text style={s.resetBtnText}>Wyczyść</Text>
@@ -195,7 +263,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       {saved && (
         <View style={s.savedBanner}>
-          <Text style={s.savedBannerText}>🎨 Rysunek zapisany w aplikacji! Zapisanie do Zdjęć będzie dostępne w wersji finalnej.</Text>
+          <Text style={s.savedBannerText}>🎨 Rysunek zapisany do Zdjec.</Text>
           <Pressable onPress={() => setSaved(false)} style={s.savedBannerClose}>
             <Text style={s.savedBannerCloseText}>×</Text>
           </Pressable>
@@ -225,6 +293,7 @@ const s = StyleSheet.create({
   canvas: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e3c88f' },
   actions: { flexDirection: 'row', gap: 8 },
   doneBtn: { flex: 1, backgroundColor: '#2f8b5f', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  doneBtnDisabled: { opacity: 0.7 },
   doneBtnText: { color: '#fff', fontWeight: '800' },
   resetBtn: { flex: 1, backgroundColor: '#fff4d7', borderRadius: 10, borderWidth: 1, borderColor: '#ecd4a2', paddingVertical: 10, alignItems: 'center' },
   resetBtnText: { color: '#7a542f', fontWeight: '800' },

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
+import * as WebBrowser from 'expo-web-browser';
 import {
   Animated,
   Alert,
@@ -17,7 +18,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { seasonEpisodes, seasonMapData, season2Episodes, season2MapData } from './src/data/season1';
+import { seasonEpisodes, seasonMapData, season2Episodes, season2MapData, type Episode } from './src/data/season1';
 import { allQuizzes } from './src/data/quiz';
 import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './src/games/match3';
 import { PuzzleGame } from './src/games/PuzzleGame';
@@ -86,6 +87,31 @@ const STORAGE_KEYS = {
   dailyProgress: 'brunoifela.dailyProgress.v1',
 };
 
+type EpisodeMediaLinks = {
+  youtube?: string;
+  spotify?: string;
+};
+
+const SEASON_MEDIA_PLACEHOLDER_LINKS: Required<EpisodeMediaLinks> = {
+  youtube: 'https://www.youtube.com/@BrunoiFela/playlists',
+  spotify: 'https://open.spotify.com/show/1WQ1pwKDz9UGFtUFvLhrj3',
+};
+
+// Optional per-episode overrides, e.g.:
+// S01E01: { youtube: 'https://youtube.com/...', spotify: 'https://open.spotify.com/...' }
+const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {};
+
+function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> {
+  return {
+    ...SEASON_MEDIA_PLACEHOLDER_LINKS,
+    ...EPISODE_MEDIA_LINKS[episodeCode],
+  };
+}
+
+function getEpisodeSeason(episodeCode: string): 1 | 2 {
+  return episodeCode.startsWith('S02') ? 2 : 1;
+}
+
 const gemColors = ['#e25a5a', '#4ca76d', '#4d7ad3', '#e6b94c', '#9a66d9'];
 
 function shuffleArray<T>(items: T[]) {
@@ -103,11 +129,13 @@ function todayKey() {
 
 export default function App() {
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const allEpisodes = useMemo(() => [...seasonEpisodes, ...season2Episodes], []);
 
   const [screen, setScreen] = useState<Screen>('splash');
   const [activeGameTab, setActiveGameTab] = useState<GameTab>('zrecznosciowa');
   const [fullscreenGame, setFullscreenGame] = useState<GameTab | null>(null);
   const [mapSeason, setMapSeason] = useState<1 | 2>(1);
+  const [quizSeason, setQuizSeason] = useState<1 | 2>(1);
   const [odcinkiSeason, setOdcinkiSeason] = useState<'all' | 1 | 2>('all');
   const [odcinkiDropdownOpen, setOdcinkiDropdownOpen] = useState(false);
 
@@ -215,9 +243,7 @@ export default function App() {
     return data.find((location) => location.id === selectedLocationId) ?? data[0];
   }, [selectedLocationId, mapSeason]);
 
-  const selectedEpisode =
-    [...seasonEpisodes, ...season2Episodes].find((episode) => episode.code === selectedEpisodeCode) ??
-    seasonEpisodes[0];
+  const selectedEpisode = allEpisodes.find((episode) => episode.code === selectedEpisodeCode) ?? seasonEpisodes[0];
 
   const mapEvents = selectedLocation.events;
 
@@ -243,28 +269,43 @@ export default function App() {
     });
   }, [selectedQuiz?.episodeCode, shuffleTick]);
 
-  const totalStars = seasonEpisodes.reduce((sum, episode) => sum + (quizScores[episode.code] ?? 0), 0);
+  const totalStars = allEpisodes.reduce((sum, episode) => sum + (quizScores[episode.code] ?? 0), 0);
+  const totalStarsCap = allEpisodes.length * 3;
   const dailyStarsGoal = 10;
   const dailyRoundsGoal = 2;
   const dailyGoalDone = dailyStars >= dailyStarsGoal && dailyRounds >= dailyRoundsGoal;
 
   const unlockedEpisodeMap = useMemo(() => {
     const unlocked: Record<string, boolean> = {};
-    // S01 — locked based on quiz scores
-    seasonEpisodes.forEach((episode, index) => {
-      if (index === 0) {
-        unlocked[episode.code] = true;
-        return;
-      }
-      const prevEpisodeCode = seasonEpisodes[index - 1].code;
-      unlocked[episode.code] = unlocked[prevEpisodeCode] && (quizScores[prevEpisodeCode] ?? 0) >= 2;
-    });
-    // S02 — fully unlocked
-    season2Episodes.forEach((episode) => {
-      unlocked[episode.code] = true;
-    });
+
+    const applySequentialUnlock = (episodes: Episode[]) => {
+      episodes.forEach((episode, index) => {
+        if (index === 0) {
+          unlocked[episode.code] = true;
+          return;
+        }
+        const prevEpisodeCode = episodes[index - 1].code;
+        unlocked[episode.code] = unlocked[prevEpisodeCode] && (quizScores[prevEpisodeCode] ?? 0) >= 2;
+      });
+    };
+
+    // S01 and S02 use the same unlocking rule: first episode open, next after 2/3 in previous.
+    applySequentialUnlock(seasonEpisodes);
+    applySequentialUnlock(season2Episodes);
+
     return unlocked;
   }, [quizScores]);
+
+  const quizSeasonEpisodes = quizSeason === 1 ? seasonEpisodes : season2Episodes;
+
+  const firstUnlockedEpisodeInQuizSeason = useMemo(() => {
+    const firstUnlocked = quizSeasonEpisodes.find((episode) => unlockedEpisodeMap[episode.code]);
+    return firstUnlocked?.code ?? quizSeasonEpisodes[0].code;
+  }, [quizSeasonEpisodes, unlockedEpisodeMap]);
+
+  const currentQuizEpisodeIndex = quizSeasonEpisodes.findIndex((episode) => episode.code === selectedEpisodeCode);
+  const nextQuizEpisode = currentQuizEpisodeIndex >= 0 ? quizSeasonEpisodes[currentQuizEpisodeIndex + 1] : undefined;
+  const isNextQuizEpisodeUnlocked = nextQuizEpisode ? !!unlockedEpisodeMap[nextQuizEpisode.code] : false;
 
   const scoreToStars = (score: number) => {
     const full = '★'.repeat(score);
@@ -351,7 +392,7 @@ export default function App() {
           const parsed = JSON.parse(savedScoresRaw) as Record<string, number>;
           if (parsed && typeof parsed === 'object') {
             const safeScores: Record<string, number> = {};
-            seasonEpisodes.forEach((episode) => {
+            allEpisodes.forEach((episode) => {
               const value = parsed[episode.code];
               if (typeof value === 'number' && value >= 0 && value <= 3) {
                 safeScores[episode.code] = Math.floor(value);
@@ -361,11 +402,9 @@ export default function App() {
           }
         }
 
-        if (
-          savedEpisode &&
-          (savedEpisode === 'all' || seasonEpisodes.some((episode) => episode.code === savedEpisode))
-        ) {
+        if (savedEpisode && allEpisodes.some((episode) => episode.code === savedEpisode)) {
           setSelectedEpisodeCode(savedEpisode);
+          setQuizSeason(getEpisodeSeason(savedEpisode));
         }
 
         if (savedDailyRaw) {
@@ -427,12 +466,28 @@ export default function App() {
   useEffect(() => {
     // Lock redirect only matters for quiz
     if (screen !== 'quiz') return;
-    if (selectedEpisodeCode === 'all') return;
     if (!unlockedEpisodeMap[selectedEpisodeCode]) {
-      const firstUnlocked = seasonEpisodes.find((episode) => unlockedEpisodeMap[episode.code]);
-      setSelectedEpisodeCode(firstUnlocked?.code ?? 'S01E01');
+      const selectedSeasonEpisodes = getEpisodeSeason(selectedEpisodeCode) === 2 ? season2Episodes : seasonEpisodes;
+      const firstUnlocked = selectedSeasonEpisodes.find((episode) => unlockedEpisodeMap[episode.code]);
+      const fallbackCode = firstUnlocked?.code ?? selectedSeasonEpisodes[0].code;
+      setSelectedEpisodeCode(fallbackCode);
+      setQuizSeason(getEpisodeSeason(fallbackCode));
     }
   }, [screen, selectedEpisodeCode, unlockedEpisodeMap]);
+
+  useEffect(() => {
+    if (screen !== 'quiz') return;
+    const selectedInCurrentSeason = quizSeasonEpisodes.some((episode) => episode.code === selectedEpisodeCode);
+    if (!selectedInCurrentSeason || !unlockedEpisodeMap[selectedEpisodeCode]) {
+      setSelectedEpisodeCode(firstUnlockedEpisodeInQuizSeason);
+    }
+  }, [
+    screen,
+    quizSeasonEpisodes,
+    selectedEpisodeCode,
+    unlockedEpisodeMap,
+    firstUnlockedEpisodeInQuizSeason,
+  ]);
 
   useEffect(() => {
     if (!tapPlaying) {
@@ -512,6 +567,38 @@ export default function App() {
       Animated.timing(missOpacity, { toValue: 0, duration: 420, useNativeDriver: true }),
       Animated.timing(missScale, { toValue: 2.0, duration: 420, useNativeDriver: true }),
     ]).start();
+  };
+
+  const openEpisodeLink = async (url: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        toolbarColor: '#fff8e8',
+        controlsColor: '#cb3f45',
+        showTitle: true,
+      });
+    } catch {
+      Alert.alert('Nie udalo sie otworzyc linku', 'Sprawdz, czy link do odcinka jest poprawny.');
+    }
+  };
+
+  const selectQuizOption = (questionId: string, optionIndex: number, correctIndex: number) => {
+    if (quizAnswers[questionId] !== correctIndex && optionIndex === correctIndex) {
+      const praise = Math.random() < 0.5 ? 'Brawo' : 'Swietnie';
+      announce(praise);
+      showFeedback(praise === 'Brawo' ? 'Brawo!' : 'Swietnie!');
+    }
+
+    setQuizAnswers((current) => ({
+      ...current,
+      [questionId]: optionIndex,
+    }));
+  };
+
+  const goToNextQuizEpisode = () => {
+    if (!nextQuizEpisode || !isNextQuizEpisodeUnlocked) {
+      return;
+    }
+    setSelectedEpisodeCode(nextQuizEpisode.code);
   };
 
   const submitQuiz = () => {
@@ -650,6 +737,7 @@ export default function App() {
     setQuizScores({});
     setQuizAnswers({});
     setQuizFeedback({});
+    setQuizSeason(1);
     setSelectedEpisodeCode('S01E01');
     setSelectedLocationId(seasonMapData[0].id);
     setDailyDate(todayKey());
@@ -738,7 +826,7 @@ export default function App() {
           </Pressable>
           <View style={styles.topBarRight}>
             {screen === 'quiz' && (
-              <Text style={styles.topBarStars}>⭐ {totalStars}/30</Text>
+              <Text style={styles.topBarStars}>⭐ {totalStars}/{totalStarsCap}</Text>
             )}
             {screen === 'quiz' && (
               <Pressable onPress={askResetProgress} style={styles.resetProgressButton}>
@@ -763,38 +851,50 @@ export default function App() {
         </Animated.View>
 
         {screen === 'quiz' && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodePicker}>
-            <Pressable
-              onPress={() => setSelectedEpisodeCode('all')}
-              style={[styles.episodeChip, selectedEpisodeCode === 'all' && styles.episodeChipActive]}
-            >
-              <Text style={[styles.episodeChipText, selectedEpisodeCode === 'all' && styles.episodeChipTextActive]}>
-                Wszystkie
-              </Text>
-            </Pressable>
-            {[...seasonEpisodes, ...season2Episodes].map((episode) => (
+          <View style={styles.quizPickerWrap}>
+            <View style={styles.quizSeasonSelector}>
               <Pressable
-                key={episode.code}
-                onPress={() => setSelectedEpisodeCode(episode.code)}
-                disabled={!unlockedEpisodeMap[episode.code]}
-                style={[
-                  styles.episodeChip,
-                  selectedEpisodeCode === episode.code && styles.episodeChipActive,
-                  !unlockedEpisodeMap[episode.code] && styles.episodeChipLocked,
-                ]}
+                style={[styles.mapSeasonBtn, quizSeason === 1 && styles.mapSeasonBtnActive]}
+                onPress={() => setQuizSeason(1)}
               >
-                <Text
-                  style={[
-                    styles.episodeChipText,
-                    selectedEpisodeCode === episode.code && styles.episodeChipTextActive,
-                    !unlockedEpisodeMap[episode.code] && styles.episodeChipTextLocked,
-                  ]}
-                >
-                  {unlockedEpisodeMap[episode.code] ? episode.code : `${episode.code} 🔒`}
+                <Text style={[styles.mapSeasonBtnText, quizSeason === 1 && styles.mapSeasonBtnTextActive]}>
+                  🌳 Sezon 1
                 </Text>
               </Pressable>
-            ))}
-          </ScrollView>
+              <Pressable
+                style={[styles.mapSeasonBtn, quizSeason === 2 && styles.mapSeasonBtnActive]}
+                onPress={() => setQuizSeason(2)}
+              >
+                <Text style={[styles.mapSeasonBtnText, quizSeason === 2 && styles.mapSeasonBtnTextActive]}>
+                  ☀️ Sezon 2
+                </Text>
+              </Pressable>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodePicker}>
+              {quizSeasonEpisodes.map((episode) => (
+                <Pressable
+                  key={episode.code}
+                  onPress={() => setSelectedEpisodeCode(episode.code)}
+                  disabled={!unlockedEpisodeMap[episode.code]}
+                  style={[
+                    styles.episodeChip,
+                    selectedEpisodeCode === episode.code && styles.episodeChipActive,
+                    !unlockedEpisodeMap[episode.code] && styles.episodeChipLocked,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.episodeChipText,
+                      selectedEpisodeCode === episode.code && styles.episodeChipTextActive,
+                      !unlockedEpisodeMap[episode.code] && styles.episodeChipTextLocked,
+                    ]}
+                  >
+                    {unlockedEpisodeMap[episode.code] ? episode.code : `${episode.code} 🔒`}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
         )}
 
         {screen === 'mapa' && (
@@ -911,8 +1011,33 @@ export default function App() {
                 </View>
                 {seasonEpisodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
+                    {(() => {
+                      const mediaLinks = getEpisodeMediaLinks(episode.code);
+                      return (
+                        <>
                     <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
                     <Text style={styles.missionText}>{episode.description}</Text>
+                    <View style={styles.episodeMediaRow}>
+                      <Pressable
+                        style={styles.episodeMediaBtn}
+                        onPress={() => {
+                          void openEpisodeLink(mediaLinks.youtube);
+                        }}
+                      >
+                        <Text style={styles.episodeMediaBtnText}>▶ Ogladaj na YouTube</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.episodeMediaBtn}
+                        onPress={() => {
+                          void openEpisodeLink(mediaLinks.spotify);
+                        }}
+                      >
+                        <Text style={styles.episodeMediaBtnText}>♫ Sluchaj na Spotify</Text>
+                      </Pressable>
+                    </View>
+                        </>
+                      );
+                    })()}
                   </View>
                 ))}
               </>
@@ -925,8 +1050,33 @@ export default function App() {
                 </View>
                 {season2Episodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
+                    {(() => {
+                      const mediaLinks = getEpisodeMediaLinks(episode.code);
+                      return (
+                        <>
                     <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
                     <Text style={styles.missionText}>{episode.description}</Text>
+                    <View style={styles.episodeMediaRow}>
+                      <Pressable
+                        style={styles.episodeMediaBtn}
+                        onPress={() => {
+                          void openEpisodeLink(mediaLinks.youtube);
+                        }}
+                      >
+                        <Text style={styles.episodeMediaBtnText}>▶ Ogladaj na YouTube</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.episodeMediaBtn}
+                        onPress={() => {
+                          void openEpisodeLink(mediaLinks.spotify);
+                        }}
+                      >
+                        <Text style={styles.episodeMediaBtnText}>♫ Sluchaj na Spotify</Text>
+                      </Pressable>
+                    </View>
+                        </>
+                      );
+                    })()}
                   </View>
                 ))}
               </>
@@ -935,18 +1085,11 @@ export default function App() {
         )}
         {screen === 'quiz' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Mini quiz sezonu 1</Text>
+            <Text style={styles.sectionTitle}>Mini quiz</Text>
             <Text style={styles.sectionDescription}>
-              3 pytania na odcinek. Najlepszy wynik zapisuje sie jako gwiazdki.
+              3 pytania na odcinek. Najlepszy wynik zapisuje sie jako gwiazdki. Odcinki odblokowuja sie po 2/3.
             </Text>
-            {selectedEpisodeCode === 'all' ? (
-              <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonTitle}>Wybierz konkretny odcinek</Text>
-                <Text style={styles.nextSeasonText}>
-                  Aby rozwiazac quiz, wybierz S01E01-S01E10 z paska filtrow.
-                </Text>
-              </View>
-            ) : !unlockedEpisodeMap[selectedEpisodeCode] ? (
+            {!unlockedEpisodeMap[selectedEpisodeCode] ? (
               <View style={styles.nextSeasonCard}>
                 <Text style={styles.nextSeasonTitle}>Odcinek zablokowany</Text>
                 <Text style={styles.nextSeasonText}>
@@ -966,6 +1109,7 @@ export default function App() {
                       quizScores[selectedEpisode.code] ?? 0,
                     )})
                   </Text>
+                  <Text style={styles.nextSeasonText}>Tytul odcinka: {selectedEpisode.title}</Text>
                   {quizFeedback[selectedEpisode.code] ? (
                     <Text style={styles.quizFeedbackText}>{quizFeedback[selectedEpisode.code]}</Text>
                   ) : null}
@@ -982,12 +1126,7 @@ export default function App() {
                         return (
                           <Pressable
                             key={`${question.id}-${optionIndex}`}
-                            onPress={() =>
-                              setQuizAnswers((current) => ({
-                                ...current,
-                                [question.id]: optionIndex,
-                              }))
-                            }
+                            onPress={() => selectQuizOption(question.id, optionIndex, question.correctIndex)}
                             style={[styles.quizOption, isSelected && styles.quizOptionSelected]}
                           >
                             <Text style={[styles.quizOptionText, isSelected && styles.quizOptionTextSelected]}>
@@ -1007,6 +1146,21 @@ export default function App() {
                   <Pressable style={styles.quizSecondaryButton} onPress={resetQuiz}>
                     <Text style={styles.quizSecondaryButtonText}>Wyczysc odpowiedzi</Text>
                   </Pressable>
+                  {nextQuizEpisode ? (
+                    <Pressable
+                      style={[styles.quizPrimaryButton, !isNextQuizEpisodeUnlocked && styles.quizPrimaryButtonDisabled]}
+                      onPress={goToNextQuizEpisode}
+                      disabled={!isNextQuizEpisodeUnlocked}
+                    >
+                      <Text style={[styles.quizPrimaryButtonText, !isNextQuizEpisodeUnlocked && styles.quizPrimaryButtonTextDisabled]}>
+                        {isNextQuizEpisodeUnlocked
+                          ? `Dalej: ${nextQuizEpisode.code}`
+                          : `Dalej: ${nextQuizEpisode.code} 🔒`}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.nextSeasonText}>To ostatni odcinek tego sezonu. Brawo!</Text>
+                  )}
                 </View>
               </>
             )}
@@ -1566,6 +1720,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingRight: 16,
   },
+  quizPickerWrap: {
+    gap: 8,
+  },
+  quizSeasonSelector: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   episodeChip: {
     backgroundColor: '#fff4d7',
     borderWidth: 1,
@@ -1760,6 +1921,24 @@ const styles = StyleSheet.create({
     color: '#644d33',
     lineHeight: 20,
   },
+  episodeMediaRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  episodeMediaBtn: {
+    flex: 1,
+    backgroundColor: '#2f8b5f',
+    borderRadius: 9,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  episodeMediaBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 12,
+  },
   nextSeasonCard: {
     marginTop: 6,
     backgroundColor: 'rgba(255, 242, 211, 0.93)',
@@ -1833,6 +2012,12 @@ const styles = StyleSheet.create({
   quizPrimaryButtonText: {
     color: '#ffffff',
     fontWeight: '800',
+  },
+  quizPrimaryButtonDisabled: {
+    backgroundColor: '#8fb9a2',
+  },
+  quizPrimaryButtonTextDisabled: {
+    color: '#edf5f1',
   },
   quizSecondaryButton: {
     backgroundColor: '#fff4d7',
