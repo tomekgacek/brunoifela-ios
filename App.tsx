@@ -35,6 +35,8 @@ const dabBg = require('./assets/game/Dab.jpeg');
 const riverThumbImg = require('./assets/game/rzeka.png');
 const brunoFaceImg = require('./assets/game/landing-page/Bruno.png');
 const felaFaceImg  = require('./assets/game/landing-page/Fela.png');
+const youtubeLogoImg = require('./assets/logo/youtube-logo.png');
+const spotifyLogoImg = require('./assets/logo/spotify.png');
 
 const VOICE_CLIPS: Record<string, number> = {
   'Koniec rundy': require('./assets/voices/1_koniec_rundy.mp3'),
@@ -304,6 +306,7 @@ export default function App() {
   }, [quizSeasonEpisodes, unlockedEpisodeMap]);
 
   const currentQuizEpisodeIndex = quizSeasonEpisodes.findIndex((episode) => episode.code === selectedEpisodeCode);
+  const prevQuizEpisode = currentQuizEpisodeIndex > 0 ? quizSeasonEpisodes[currentQuizEpisodeIndex - 1] : undefined;
   const nextQuizEpisode = currentQuizEpisodeIndex >= 0 ? quizSeasonEpisodes[currentQuizEpisodeIndex + 1] : undefined;
   const isNextQuizEpisodeUnlocked = nextQuizEpisode ? !!unlockedEpisodeMap[nextQuizEpisode.code] : false;
 
@@ -577,7 +580,7 @@ export default function App() {
         showTitle: true,
       });
     } catch {
-      Alert.alert('Nie udalo sie otworzyc linku', 'Sprawdz, czy link do odcinka jest poprawny.');
+      Alert.alert('Nie udało się otworzyć linku', 'Sprawdź, czy link do odcinka jest poprawny.');
     }
   };
 
@@ -585,7 +588,7 @@ export default function App() {
     if (quizAnswers[questionId] !== correctIndex && optionIndex === correctIndex) {
       const praise = Math.random() < 0.5 ? 'Brawo' : 'Swietnie';
       announce(praise);
-      showFeedback(praise === 'Brawo' ? 'Brawo!' : 'Swietnie!');
+      showFeedback(praise === 'Brawo' ? 'Brawo!' : 'Świetnie!');
     }
 
     setQuizAnswers((current) => ({
@@ -601,6 +604,13 @@ export default function App() {
     setSelectedEpisodeCode(nextQuizEpisode.code);
   };
 
+  const goToPreviousQuizEpisode = () => {
+    if (!prevQuizEpisode) {
+      return;
+    }
+    setSelectedEpisodeCode(prevQuizEpisode.code);
+  };
+
   const submitQuiz = () => {
     if (!selectedQuiz) {
       return;
@@ -610,15 +620,15 @@ export default function App() {
       return sum + (quizAnswers[question.id] === question.correctIndex ? 1 : 0);
     }, 0);
 
-    let feedbackText = 'Dobra proba!';
+    let feedbackText = 'Dobra próba!';
     if (score === 3) {
-      feedbackText = 'Brawo! 3/3. Jestes mistrzem tego odcinka!';
+      feedbackText = 'Brawo! 3/3. Jesteś mistrzem tego odcinka!';
     } else if (score === 2) {
       feedbackText = 'Super! 2/3. Odcinek zaliczony i kolejny odblokowany.';
     } else if (score === 1) {
-      feedbackText = 'Masz 1/3. Sprobuj jeszcze raz, jest coraz lepiej!';
+      feedbackText = 'Masz 1/3. Spróbuj jeszcze raz, jest coraz lepiej!';
     } else if (score === 0) {
-      feedbackText = 'Nic nie szkodzi! Posluchaj opowiesci i sprobuj ponownie.';
+      feedbackText = 'Nic nie szkodzi! Posłuchaj opowieści i spróbuj ponownie.';
     }
 
     setQuizScores((current) => ({
@@ -748,7 +758,7 @@ export default function App() {
   };
 
   const askResetProgress = () => {
-    Alert.alert('Reset postepu', 'Czy na pewno chcesz wyzerowac caly postep gry?', [
+    Alert.alert('Reset postępu', 'Czy na pewno chcesz wyzerować cały postęp gry?', [
       {
         text: 'Anuluj',
         style: 'cancel',
@@ -769,7 +779,7 @@ export default function App() {
         style={{ flex: 1, backgroundColor: '#1b3d1b' }}
         onPress={handleSplashTap}
         accessibilityRole="button"
-        accessibilityLabel="Dotknij, aby przejsc dalej"
+        accessibilityLabel="Dotknij, aby przejść dalej"
       >
         <StatusBar style="light" />
         <Animated.View style={{ flex: 1, opacity: splashOpacity }}>
@@ -842,7 +852,7 @@ export default function App() {
             <Text style={styles.dailyGoalText}>
               Gwiazdki: {dailyStars}/{dailyStarsGoal} | Rundy: {dailyRounds}/{dailyRoundsGoal}
             </Text>
-            <Text style={styles.dailyGoalBadge}>{dailyGoalDone ? 'Cel ukonczony! 🎉' : 'Dzialaj dalej!'}</Text>
+            <Text style={styles.dailyGoalBadge}>{dailyGoalDone ? 'Cel ukończony! 🎉' : 'Działaj dalej!'}</Text>
           </View>
         )}
 
@@ -1007,7 +1017,7 @@ export default function App() {
             {(odcinkiSeason === 'all' || odcinkiSeason === 1) && (
               <>
                 <View style={styles.seasonHeader}>
-                  <Text style={styles.seasonHeaderText}>🌳 Sezon 1 — Lesna Szkola</Text>
+                  <Text style={styles.seasonHeaderText}>🌳 Sezon 1 — Leśna Szkoła</Text>
                 </View>
                 {seasonEpisodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
@@ -1024,7 +1034,8 @@ export default function App() {
                           void openEpisodeLink(mediaLinks.youtube);
                         }}
                       >
-                        <Text style={styles.episodeMediaBtnText}>▶ Ogladaj na YouTube</Text>
+                        <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                        <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
                       </Pressable>
                       <Pressable
                         style={styles.episodeMediaBtn}
@@ -1032,7 +1043,8 @@ export default function App() {
                           void openEpisodeLink(mediaLinks.spotify);
                         }}
                       >
-                        <Text style={styles.episodeMediaBtnText}>♫ Sluchaj na Spotify</Text>
+                        <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                        <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
                       </Pressable>
                     </View>
                         </>
@@ -1063,7 +1075,8 @@ export default function App() {
                           void openEpisodeLink(mediaLinks.youtube);
                         }}
                       >
-                        <Text style={styles.episodeMediaBtnText}>▶ Ogladaj na YouTube</Text>
+                        <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                        <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
                       </Pressable>
                       <Pressable
                         style={styles.episodeMediaBtn}
@@ -1071,7 +1084,8 @@ export default function App() {
                           void openEpisodeLink(mediaLinks.spotify);
                         }}
                       >
-                        <Text style={styles.episodeMediaBtnText}>♫ Sluchaj na Spotify</Text>
+                        <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                        <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
                       </Pressable>
                     </View>
                         </>
@@ -1087,19 +1101,19 @@ export default function App() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Mini quiz</Text>
             <Text style={styles.sectionDescription}>
-              3 pytania na odcinek. Najlepszy wynik zapisuje sie jako gwiazdki. Odcinki odblokowuja sie po 2/3.
+              3 pytania na odcinek. Najlepszy wynik zapisuje się jako gwiazdki. Odcinki odblokowują się po 2/3.
             </Text>
             {!unlockedEpisodeMap[selectedEpisodeCode] ? (
               <View style={styles.nextSeasonCard}>
                 <Text style={styles.nextSeasonTitle}>Odcinek zablokowany</Text>
                 <Text style={styles.nextSeasonText}>
-                  Aby odblokowac ten odcinek, zdobadz minimum 2/3 gwiazdki w poprzednim.
+                  Aby odblokować ten odcinek, zdobądź minimum 2/3 gwiazdki w poprzednim.
                 </Text>
               </View>
             ) : !selectedQuiz ? (
               <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonTitle}>Brak pytan</Text>
-                <Text style={styles.nextSeasonText}>Dla tego odcinka quiz nie zostal jeszcze przygotowany.</Text>
+                <Text style={styles.nextSeasonTitle}>Brak pytań</Text>
+                <Text style={styles.nextSeasonText}>Dla tego odcinka quiz nie został jeszcze przygotowany.</Text>
               </View>
             ) : (
               <>
@@ -1109,7 +1123,7 @@ export default function App() {
                       quizScores[selectedEpisode.code] ?? 0,
                     )})
                   </Text>
-                  <Text style={styles.nextSeasonText}>Tytul odcinka: {selectedEpisode.title}</Text>
+                  <Text style={styles.nextSeasonText}>Tytuł odcinka: {selectedEpisode.title}</Text>
                   {quizFeedback[selectedEpisode.code] ? (
                     <Text style={styles.quizFeedbackText}>{quizFeedback[selectedEpisode.code]}</Text>
                   ) : null}
@@ -1141,11 +1155,16 @@ export default function App() {
 
                 <View style={styles.quizActions}>
                   <Pressable style={styles.quizPrimaryButton} onPress={submitQuiz}>
-                    <Text style={styles.quizPrimaryButtonText}>Sprawdz wynik</Text>
+                    <Text style={styles.quizPrimaryButtonText}>Sprawdź wynik</Text>
                   </Pressable>
                   <Pressable style={styles.quizSecondaryButton} onPress={resetQuiz}>
-                    <Text style={styles.quizSecondaryButtonText}>Wyczysc odpowiedzi</Text>
+                    <Text style={styles.quizSecondaryButtonText}>Wyczyść odpowiedzi</Text>
                   </Pressable>
+                  {prevQuizEpisode ? (
+                    <Pressable style={styles.quizSecondaryButton} onPress={goToPreviousQuizEpisode}>
+                      <Text style={styles.quizSecondaryButtonText}>Wstecz: {prevQuizEpisode.code}</Text>
+                    </Pressable>
+                  ) : null}
                   {nextQuizEpisode ? (
                     <Pressable
                       style={[styles.quizPrimaryButton, !isNextQuizEpisodeUnlocked && styles.quizPrimaryButtonDisabled]}
@@ -1933,11 +1952,20 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 64,
+    gap: 5,
+    overflow: 'hidden',
+  },
+  episodeMediaBtnLogo: {
+    width: 22,
+    height: 22,
   },
   episodeMediaBtnText: {
     color: '#fff',
     fontWeight: '800',
     fontSize: 12,
+    textAlign: 'center',
   },
   nextSeasonCard: {
     marginTop: 6,

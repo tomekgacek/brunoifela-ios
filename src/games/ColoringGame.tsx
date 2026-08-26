@@ -122,8 +122,8 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
     if (!requested.canAskAgain) {
       Alert.alert(
-        'Brak dostepu do Zdjec',
-        'Aby zapisywac rysunki, wlacz dostep do Zdjec w ustawieniach iOS.',
+        'Brak dostępu do Zdjęć',
+        'Aby zapisywać rysunki, włącz dostęp do Zdjęć w ustawieniach iOS.',
         [
           { text: 'Anuluj', style: 'cancel' },
           {
@@ -171,7 +171,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
       setSaved(true);
       onRoundComplete();
     } catch {
-      Alert.alert('Nie udalo sie zapisac', 'Wystapil problem podczas zapisu rysunku do Zdjec. Sprobuj ponownie.');
+      Alert.alert('Nie udało się zapisać', 'Wystąpił problem podczas zapisu rysunku do Zdjęć. Spróbuj ponownie.');
     } finally {
       setIsSaving(false);
     }
@@ -263,7 +263,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       {saved && (
         <View style={s.savedBanner}>
-          <Text style={s.savedBannerText}>🎨 Rysunek zapisany do Zdjec.</Text>
+          <Text style={s.savedBannerText}>🎨 Rysunek zapisany do Zdjęć.</Text>
           <Pressable onPress={() => setSaved(false)} style={s.savedBannerClose}>
             <Text style={s.savedBannerCloseText}>×</Text>
           </Pressable>
