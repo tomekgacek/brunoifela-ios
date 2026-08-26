@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const GRID = 3;
@@ -68,35 +68,6 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const [solved, setSolved] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
-  const [hintActive, setHintActive] = useState(false);
-  const [puzzleHints, setPuzzleHints] = useState(3);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Row-by-row progress helpers
-  const isRowSolved = (rowIdx: number) =>
-    Array.from({ length: GRID }, (_, col) =>
-      tiles[rowIdx * GRID + col] === SOLVED[rowIdx * GRID + col],
-    ).every(Boolean);
-
-  const rowsSolved = [0, 1, 2].map(isRowSolved);
-  const currentFocusRow = rowsSolved.findIndex((done) => !done);
-  const activeFocusRow = currentFocusRow === -1 ? GRID - 1 : currentFocusRow;
-
-  // Which tile positions to highlight when hint is active
-  const hintSourceSet = new Set<number>(); // tiles that need to move (gold)
-  const hintTargetSet = new Set<number>(); // where they should go (green)
-  if (hintActive && !solved) {
-    for (let col = 0; col < GRID; col++) {
-      const targetPos = activeFocusRow * GRID + col;
-      const expectedTile = SOLVED[targetPos];
-      if (expectedTile === 0) continue;
-      if (tiles[targetPos] !== expectedTile) {
-        hintTargetSet.add(targetPos);
-        const currentPos = tiles.indexOf(expectedTile);
-        if (currentPos !== -1) hintSourceSet.add(currentPos);
-      }
-    }
-  }
 
   const tileSize = containerWidth > 0 ? Math.floor(containerWidth / GRID) : 80;
   const boardSize = tileSize * GRID;
@@ -148,20 +119,9 @@ export function PuzzleGame({ onRoundComplete }: Props) {
     setTiles(scramble(80));
     setMoveCount(0);
     setSolved(false);
-    setHintActive(false);
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     if (newImageIdx !== undefined) {
       setImageIdx(newImageIdx);
-      setPuzzleHints(3);
     }
-  };
-
-  const useHint = () => {
-    if (puzzleHints <= 0 || solved) return;
-    setHintActive(true);
-    setPuzzleHints((h) => h - 1);
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-    hintTimerRef.current = setTimeout(() => setHintActive(false), 4000);
   };
 
   return (
@@ -202,7 +162,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
       )}
 
       {/* Board */}
-      <View style={{ position: 'relative' }}>
+      <View style={s.boardSection}>
         <View
           style={s.board}
           onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
@@ -238,8 +198,6 @@ export function PuzzleGame({ onRoundComplete }: Props) {
                 }}
                 resizeMode="stretch"
               />
-              {hintSourceSet.has(idx) && <View style={s.hintSourceOverlay} />}
-              {hintTargetSet.has(idx) && <View style={s.hintTargetOverlay} />}
             </Pressable>
           );
         })}
@@ -257,40 +215,6 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         )}
       </View>
 
-      {/* Row progress — below board */}
-      <View style={s.rowProgress}>
-        {([0, 1, 2] as const).map((rowIdx) => {
-          const done = rowsSolved[rowIdx];
-          const active = !done && rowIdx === activeFocusRow;
-          const label = rowIdx === 0 ? 'Górny' : rowIdx === 1 ? 'Środkowy' : 'Dolny';
-          return (
-            <View key={rowIdx} style={[s.rowBadge, done && s.rowBadgeDone, active && s.rowBadgeActive]}>
-              <Text style={[s.rowBadgeText, (done || active) && s.rowBadgeTextBold]}>
-                {done ? '✓' : active ? '→' : '·'} {label}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-
-      {/* Hint section — below board */}
-      <View style={s.hintSection}>
-        <Pressable
-          onPress={useHint}
-          disabled={puzzleHints <= 0 || solved}
-          style={[s.hintBtn, (puzzleHints === 0 || solved) && s.btnDisabled]}
-        >
-          <Text style={s.hintBtnText}>💡 Podpowiedź ({puzzleHints})</Text>
-        </Pressable>
-        <View style={s.hintInfo}>
-          <Text style={s.hintInfoText}>
-            🟡 = kafelek który trzeba przesunąć{'\n'}
-            🟢 = miejsce, w które go wsadź{'\n'}
-            Układaj rząd po rzędzie: górny → środkowy → dolny
-          </Text>
-        </View>
-      </View>
-
       <Pressable style={s.resetBtn} onPress={() => resetPuzzle()}>
         <Text style={s.resetBtnText}>Nowe układanie</Text>
       </Pressable>
@@ -299,7 +223,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 }
 
 const s = StyleSheet.create({
-  wrap: { gap: 10 },
+  wrap: { gap: 12 },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,68 +236,6 @@ const s = StyleSheet.create({
     gap: 6,
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
-  },
-  btnDisabled: { opacity: 0.35 },
-  rowProgress: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  rowBadge: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 7,
-    alignItems: 'center',
-    backgroundColor: '#f0d9a6',
-    borderWidth: 1,
-    borderColor: '#c9a97a',
-  },
-  rowBadgeDone: { backgroundColor: '#c8e6c9', borderColor: '#4caf50' },
-  rowBadgeActive: { backgroundColor: '#fff9c4', borderColor: '#f0b429' },
-  rowBadgeText: { fontSize: 12, fontWeight: '700', color: '#7a542f' },
-  rowBadgeTextBold: { color: '#3a2000' },
-  hintSourceOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    borderWidth: 4,
-    borderColor: '#ffd700',
-    borderRadius: 3,
-  },
-  hintTargetOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(76,175,80,0.35)',
-    borderWidth: 4,
-    borderColor: '#43a047',
-    borderRadius: 3,
-  },
-  hintSection: {
-    gap: 8,
-  },
-  hintBtn: {
-    backgroundColor: '#fff9c4',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#f0b429',
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  hintBtnText: {
-    color: '#7a4f10',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-  hintInfo: {
-    backgroundColor: 'rgba(255,248,232,0.92)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ecd4a2',
-    padding: 10,
-  },
-  hintInfoText: {
-    color: '#644d33',
-    fontSize: 13,
-    lineHeight: 22,
-    fontWeight: '600',
   },
   previewBtn: {
     backgroundColor: '#fff4d7',
@@ -423,6 +285,11 @@ const s = StyleSheet.create({
   pickerBtnText: { fontWeight: '700', color: '#664d31', fontSize: 12 },
   pickerBtnTextActive: { color: '#fff' },
   stats: { color: '#644d33', fontWeight: '700', fontSize: 13 },
+  boardSection: {
+    position: 'relative',
+    marginTop: 2,
+    marginBottom: 2,
+  },
   board: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -456,6 +323,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ecd4a2',
     paddingVertical: 10,
+    marginTop: 4,
     alignItems: 'center',
   },
   resetBtnText: { color: '#7a542f', fontWeight: '800' },
