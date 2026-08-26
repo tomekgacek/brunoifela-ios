@@ -14,7 +14,11 @@
     },
     "ios": {
       "icon": "./assets/icon.png",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tomekg.brunoifelaios",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,6 +33,11 @@
     },
     "plugins": [
       "expo-video"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "81dafd1b-6f95-4896-bc3d-f5c812a7b62f"
+      }
+    }
   }
 }
