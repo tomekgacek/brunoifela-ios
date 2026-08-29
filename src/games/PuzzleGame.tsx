@@ -2,7 +2,22 @@ import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const GRID = 3;
-const SOLVED: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+const CELLS = GRID * GRID;
+
+type Difficulty = 'easy' | 'normal' | 'hard';
+
+// Empty (missing) tile count per difficulty — more empty slots make it easier to slide pieces around.
+const DIFFICULTY_EMPTY_COUNT: Record<Difficulty, number> = {
+  hard: 1,
+  normal: 2,
+  easy: 3,
+};
+
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  easy: 'Łatwy',
+  normal: 'Średni',
+  hard: 'Trudny',
+};
 
 const PUZZLE_IMAGES = [
   {
@@ -29,6 +44,18 @@ const PUZZLE_IMAGES = [
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     source: require('../../assets/game/Dab.jpeg') as number,
   },
+  {
+    id: 'felaibruno2',
+    label: 'Fela i Bruno',
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    source: require('../../assets/game/fela_i_bruno.png') as number,
+  },
+  {
+    id: 'wakacje',
+    label: 'Wakacje',
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    source: require('../../assets/game/Wakacje.png') as number,
+  },
 ];
 
 function getNeighbors(idx: number): number[] {
@@ -42,19 +69,29 @@ function getNeighbors(idx: number): number[] {
   return result;
 }
 
-function scramble(steps: number): number[] {
-  const tiles = [...SOLVED];
+/** Solved layout for a given empty-slot count: tiles 1..N in order, then N zeros (empty/missing). */
+function getSolvedLayout(emptyCount: number): number[] {
+  const filledCount = CELLS - emptyCount;
+  return Array.from({ length: CELLS }, (_, i) => (i < filledCount ? i + 1 : 0));
+}
+
+function scramble(steps: number, emptyCount: number): number[] {
+  const tiles = getSolvedLayout(emptyCount);
   for (let i = 0; i < steps; i++) {
-    const empty = tiles.indexOf(0);
-    const neighbors = getNeighbors(empty);
+    const emptyIndices = tiles.reduce<number[]>((acc, v, idx) => (v === 0 ? [...acc, idx] : acc), []);
+    const empty = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+    const neighbors = getNeighbors(empty).filter((n) => tiles[n] !== 0);
+    if (neighbors.length === 0) continue;
     const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
     [tiles[empty], tiles[pick]] = [tiles[pick], tiles[empty]];
   }
   return tiles;
 }
 
-function isSolved(tiles: number[]): boolean {
-  return tiles.every((t, i) => t === SOLVED[i]);
+/** Solved when every present (non-missing) tile sits in its original spot — empty slots are interchangeable. */
+function isSolved(tiles: number[], emptyCount: number): boolean {
+  const solvedRef = getSolvedLayout(emptyCount);
+  return tiles.every((t, i) => solvedRef[i] === 0 || t === solvedRef[i]);
 }
 
 type Props = {
@@ -63,11 +100,14 @@ type Props = {
 
 export function PuzzleGame({ onRoundComplete }: Props) {
   const [imageIdx, setImageIdx] = useState(0);
-  const [tiles, setTiles] = useState<number[]>(() => scramble(80));
+  const [difficulty, setDifficulty] = useState<Difficulty>('hard');
+  const [tiles, setTiles] = useState<number[]>(() => scramble(80, DIFFICULTY_EMPTY_COUNT.hard));
   const [moveCount, setMoveCount] = useState(0);
   const [solved, setSolved] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+
+  const emptyCount = DIFFICULTY_EMPTY_COUNT[difficulty];
 
   const tileSize = containerWidth > 0 ? Math.floor(containerWidth / GRID) : 80;
   const boardSize = tileSize * GRID;
@@ -101,26 +141,31 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
   const handleTileTap = (idx: number) => {
     if (solved) return;
-    const emptyIdx = tiles.indexOf(0);
-    if (!getNeighbors(idx).includes(emptyIdx)) return;
+    if (tiles[idx] === 0) return;
+    const emptyNeighbor = getNeighbors(idx).find((n) => tiles[n] === 0);
+    if (emptyNeighbor === undefined) return;
 
     const next = [...tiles];
-    [next[emptyIdx], next[idx]] = [next[idx], next[emptyIdx]];
+    [next[idx], next[emptyNeighbor]] = [next[emptyNeighbor], next[idx]];
     setTiles(next);
     setMoveCount((c) => c + 1);
 
-    if (isSolved(next)) {
+    if (isSolved(next, emptyCount)) {
       setSolved(true);
       onRoundComplete();
     }
   };
 
-  const resetPuzzle = (newImageIdx?: number) => {
-    setTiles(scramble(80));
+  const resetPuzzle = (newImageIdx?: number, newDifficulty?: Difficulty) => {
+    const effectiveDifficulty = newDifficulty ?? difficulty;
+    setTiles(scramble(80, DIFFICULTY_EMPTY_COUNT[effectiveDifficulty]));
     setMoveCount(0);
     setSolved(false);
     if (newImageIdx !== undefined) {
       setImageIdx(newImageIdx);
+    }
+    if (newDifficulty !== undefined) {
+      setDifficulty(newDifficulty);
     }
   };
 
@@ -137,6 +182,20 @@ export function PuzzleGame({ onRoundComplete }: Props) {
           >
             <Text style={[s.pickerBtnText, imageIdx === i && s.pickerBtnTextActive]}>
               {img.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={s.pickerRow}>
+        {(Object.keys(DIFFICULTY_EMPTY_COUNT) as Difficulty[]).map((level) => (
+          <Pressable
+            key={level}
+            onPress={() => resetPuzzle(undefined, level)}
+            style={[s.pickerBtn, difficulty === level && s.pickerBtnActive]}
+          >
+            <Text style={[s.pickerBtnText, difficulty === level && s.pickerBtnTextActive]}>
+              {DIFFICULTY_LABELS[level]}
             </Text>
           </Pressable>
         ))}

@@ -1,4 +1,4 @@
-export type CellValue = 0 | 1 | 2 | 3 | 4;
+export type CellValue = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type Board = CellValue[][];
 
 export type CellPos = {
@@ -8,7 +8,7 @@ export type CellPos = {
 
 const ROWS = 6;
 const COLS = 6;
-const COLORS = 5;
+const COLORS = 7;
 
 function randomCell(): CellValue {
   return Math.floor(Math.random() * COLORS) as CellValue;

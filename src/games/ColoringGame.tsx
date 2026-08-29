@@ -24,6 +24,7 @@ const PALETTE = [
 const ERASER = '__eraser__';
 
 const COLORING_IMAGES = [
+  { id: '0', label: 'Bruno i Fela 0', source: require('../../assets/game/kolorowanki/0_Brno_i_Fela.png') as number },
   { id: '1', label: 'Bruno i Fela', source: require('../../assets/game/kolorowanki/1_Bruno_i_Fela.jpeg') as number },
   { id: '2', label: 'Fela 2',       source: require('../../assets/game/kolorowanki/2_Fela.jpeg') as number },
   { id: '3', label: 'Fela 3',       source: require('../../assets/game/kolorowanki/3_Fela.jpeg') as number },
@@ -33,14 +34,19 @@ const COLORING_IMAGES = [
   { id: '7', label: 'Fela 7',       source: require('../../assets/game/kolorowanki/7_Fela.jpeg') as number },
   { id: '8', label: 'Bruno 8',      source: require('../../assets/game/kolorowanki/8_Bruno.jpeg') as number },
   { id: '9', label: 'Bruno 9',      source: require('../../assets/game/kolorowanki/9_Bruno.jpeg') as number },
+  { id: '10', label: 'Wakacje',     source: require('../../assets/game/kolorowanki/10_Wakacje.png') as number },
 ];
 
-/** Grid resolution — finer grid for smooth round brush strokes */
-const COLS = 30;
-const ROWS = 38;
-const BRUSH = 1; // paints (2*BRUSH+1)^2 cells = 3x3 area
+/** Canvas aspect ratio (height/width), tuned to the coloring page artwork */
+const CANVAS_ASPECT = 38 / 30;
 
-const STORAGE_KEY = 'brunoifela.coloring.v1';
+const STORAGE_KEY = 'brunoifela.coloring.v2';
+
+type Dot = { id: number; x: number; y: number; color: string; radius: number };
+
+type BrushSize = 'thin' | 'normal' | 'thick';
+const BRUSH_SIZE_FACTORS: Record<BrushSize, number> = { thin: 0.55, normal: 1, thick: 1.7 };
+const BRUSH_SIZE_LABELS: Record<BrushSize, string> = { thin: 'Cienki', normal: 'Średni', thick: 'Gruby' };
 
 type Props = { onRoundComplete: () => void };
 
@@ -48,47 +54,59 @@ export function ColoringGame({ onRoundComplete }: Props) {
   const { width: screenW } = useWindowDimensions();
   const [imageIdx, setImageIdx] = useState(0);
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
-  const [painted, setPainted] = useState<Record<string, string>>({});
+  const [brushSize, setBrushSize] = useState<BrushSize>('normal');
+  const [dots, setDots] = useState<Dot[]>([]);
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const containerWidth = Math.max(100, screenW - 84);
-  const cellW = containerWidth / COLS;
-  const cellH = cellW;
-  const gridH = cellH * ROWS;
+  const gridH = containerWidth * CANVAS_ASPECT;
+  // Brush stamp radius, scaled to canvas size and the chosen thickness.
+  const brushRadius = containerWidth * 0.032 * BRUSH_SIZE_FACTORS[brushSize];
 
-  // Keep a ref so the PanResponder always has the current color
+  // Keep a ref so the PanResponder always has the current color/size
   const activeColorRef = useRef(activeColor);
   activeColorRef.current = activeColor;
+  const brushRadiusRef = useRef(brushRadius);
+  brushRadiusRef.current = brushRadius;
   const doneRef = useRef(saved);
   doneRef.current = saved;
   const canvasRef = useRef<View | null>(null);
+  const dotIdRef = useRef(0);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  const paintAt = useCallback((lx: number, ly: number) => {
-    if (doneRef.current) return;
-    const col = Math.min(COLS - 1, Math.max(0, Math.floor(lx / cellW)));
-    const row = Math.min(ROWS - 1, Math.max(0, Math.floor(ly / cellH)));
-    const keys: string[] = [];
-    for (let dr = -BRUSH; dr <= BRUSH; dr++) {
-      for (let dc = -BRUSH; dc <= BRUSH; dc++) {
-        const r = row + dr;
-        const c = col + dc;
-        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
-          keys.push(r + '-' + c);
-        }
-      }
+  const stampAt = useCallback((x: number, y: number) => {
+    const radius = brushRadiusRef.current;
+    if (activeColorRef.current === ERASER) {
+      setDots((prev) => prev.filter((d) => Math.hypot(d.x - x, d.y - y) > radius));
+    } else {
+      const color = activeColorRef.current;
+      setDots((prev) => [...prev, { id: dotIdRef.current++, x, y, color, radius }]);
     }
-    const color = activeColorRef.current;
-    setPainted((prev) => {
-      const next = { ...prev };
-      if (color === ERASER) {
-        keys.forEach((k) => { delete next[k]; });
-      } else {
-        keys.forEach((k) => { next[k] = color; });
+  }, []);
+
+  // Paints a continuous stroke: interpolates between the last touch point and
+  // the new one so fast finger movement still produces an unbroken brush line.
+  const paintAt = useCallback((x: number, y: number) => {
+    if (doneRef.current) return;
+    const last = lastPointRef.current;
+    if (last) {
+      const dist = Math.hypot(x - last.x, y - last.y);
+      const step = Math.max(2, brushRadiusRef.current * 0.5);
+      const steps = Math.max(1, Math.round(dist / step));
+      for (let i = 1; i <= steps; i += 1) {
+        const t = i / steps;
+        stampAt(last.x + (x - last.x) * t, last.y + (y - last.y) * t);
       }
-      return next;
-    });
-  }, [cellW, cellH]);
+    } else {
+      stampAt(x, y);
+    }
+    lastPointRef.current = { x, y };
+  }, [stampAt]);
+
+  const endStroke = useCallback(() => {
+    lastPointRef.current = null;
+  }, []);
 
   const panResponder = useMemo(
     () =>
@@ -99,12 +117,15 @@ export function ColoringGame({ onRoundComplete }: Props) {
         onMoveShouldSetPanResponderCapture: () => true,
         onPanResponderGrant: (e) => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY),
         onPanResponderMove: (e) => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY),
+        onPanResponderRelease: endStroke,
+        onPanResponderTerminate: endStroke,
       }),
-    [paintAt],
+    [paintAt, endStroke],
   );
 
   const resetColoring = (newIdx?: number) => {
-    setPainted({});
+    setDots([]);
+    lastPointRef.current = null;
     setSaved(false);
     if (newIdx !== undefined) setImageIdx(newIdx);
   };
@@ -165,7 +186,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       await MediaLibrary.saveToLibraryAsync(imageUri);
 
-      const data = JSON.stringify({ imageIdx, painted });
+      const data = JSON.stringify({ imageIdx, dots });
       await AsyncStorage.setItem(STORAGE_KEY + '.' + imageIdx, data);
 
       setSaved(true);
@@ -177,8 +198,10 @@ export function ColoringGame({ onRoundComplete }: Props) {
     }
   };
 
-  const filledCount = Object.keys(painted).length;
-  const pct = Math.round((filledCount / (COLS * ROWS)) * 100);
+  // Rough coverage estimate from brush-stamp count (not exact, just for feedback).
+  const canvasArea = containerWidth * gridH;
+  const brushArea = Math.PI * brushRadius * brushRadius;
+  const pct = Math.min(100, Math.round((dots.length * brushArea * 0.45) / canvasArea * 100));
 
   return (
     <View style={s.wrap}>
@@ -205,6 +228,27 @@ export function ColoringGame({ onRoundComplete }: Props) {
         </Pressable>
       </View>
 
+      {/* Brush thickness picker */}
+      <View style={s.brushSizeRow}>
+        {(Object.keys(BRUSH_SIZE_FACTORS) as BrushSize[]).map((size) => (
+          <Pressable
+            key={size}
+            onPress={() => setBrushSize(size)}
+            style={[s.brushSizeBtn, brushSize === size && s.brushSizeBtnActive]}
+          >
+            <View style={[s.brushSizeDot, {
+              width: 10 + BRUSH_SIZE_FACTORS[size] * 10,
+              height: 10 + BRUSH_SIZE_FACTORS[size] * 10,
+              borderRadius: 999,
+              backgroundColor: brushSize === size ? '#fff' : '#7a542f',
+            }]} />
+            <Text style={[s.brushSizeText, brushSize === size && s.brushSizeTextActive]}>
+              {BRUSH_SIZE_LABELS[size]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       {/* Selected color indicator */}
       <View style={s.selectedColorRow}>
         <View style={[s.selectedColorDot, {
@@ -226,30 +270,22 @@ export function ColoringGame({ onRoundComplete }: Props) {
         {...panResponder.panHandlers}
       >
         <Image source={COLORING_IMAGES[imageIdx].source} style={{ width: containerWidth, height: gridH }} resizeMode="stretch" />
-        {/* Render painted cells as overlapping circles — looks like crayon/marker, not squares */}
-        {Object.entries(painted).map(([key, color]) => {
-          const [rowStr, colStr] = key.split('-');
-          const r = Number(rowStr);
-          const c = Number(colStr);
-          // Circles are 20% larger than the cell and centered, so they overlap and blend
-          const d = cellW * 1.4;
-          const offset = (d - cellW) / 2;
-          return (
-            <View
-              key={key}
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                left: c * cellW - offset,
-                top: r * cellH - offset,
-                width: d,
-                height: d,
-                borderRadius: d / 2,
-                backgroundColor: color + 'cc',
-              }}
-            />
-          );
-        })}
+        {/* Render each brush stamp as an overlapping circle at its real touch position — a continuous freehand stroke, not a pixel grid */}
+        {dots.map((dot) => (
+          <View
+            key={dot.id}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: dot.x - dot.radius,
+              top: dot.y - dot.radius,
+              width: dot.radius * 2,
+              height: dot.radius * 2,
+              borderRadius: dot.radius,
+              backgroundColor: dot.color + 'cc',
+            }}
+          />
+        ))}
       </View>
 
       <View style={s.actions}>
@@ -287,6 +323,23 @@ const s = StyleSheet.create({
   swatchActive: { borderColor: '#212121', transform: [{ scale: 1.18 }] },
   eraserSwatch: { backgroundColor: '#fff9ea', borderColor: '#e3c88f', borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   eraserText: { fontSize: 18 },
+  brushSizeRow: { flexDirection: 'row', gap: 8 },
+  brushSizeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    backgroundColor: '#fff9ea',
+  },
+  brushSizeBtnActive: { backgroundColor: '#cb3f45', borderColor: '#cb3f45' },
+  brushSizeDot: { backgroundColor: '#7a542f' },
+  brushSizeText: { fontWeight: '700', color: '#664d31', fontSize: 12 },
+  brushSizeTextActive: { color: '#fff' },
   selectedColorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectedColorDot: { width: 22, height: 22, borderRadius: 11 },
   selectedColorLabel: { color: '#644d33', fontWeight: '700', fontSize: 13 },

@@ -55,7 +55,14 @@ const DIFFICULTY_CONFIG: Record<Difficulty, {
   },
 };
 
-type ObstacleType = 'log' | 'rock' | 'lilypad';
+type ObstacleType = 'log' | 'rock' | 'leaf' | 'flower' | 'pinecone';
+// Hazards cost a life on collision; the rest are collectibles worth bonus points.
+const HAZARD_TYPES: ObstacleType[] = ['log', 'rock'];
+const COLLECTIBLE_BONUS_POINTS: Record<'leaf' | 'flower' | 'pinecone', number> = {
+  leaf: 3,
+  flower: 5,
+  pinecone: 4,
+};
 
 interface Obstacle {
   id: number;
@@ -122,12 +129,16 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     onRoundComplete(finalScore);
   }, [onRoundComplete]);
 
-  // Spawn obstacle
+  // Spawn obstacle — leaf/flower/pinecone are bonus-point collectibles, logs/rocks are hazards to dodge.
   const spawnObstacle = useCallback(() => {
     if (gameOverRef.current) return;
-    const types: ObstacleType[] = ['log', 'rock', 'lilypad'];
     const lane = Math.floor(Math.random() * 3);
-    const type = types[Math.floor(Math.random() * types.length)];
+    const r = Math.random();
+    let type: ObstacleType;
+    if (r < 0.2) type = 'leaf';
+    else if (r < 0.35) type = 'flower';
+    else if (r < 0.5) type = 'pinecone';
+    else type = Math.random() < 0.5 ? 'log' : 'rock';
     setObstacles((prev) => [
       ...prev,
       { id: obstacleIdRef.current++, lane, y: -OBSTACLE_SIZE, type },
@@ -148,21 +159,33 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
         const updated = prev
           .map((obs) => ({ ...obs, y: obs.y + settings.obstacleSpeed }))
           .filter((obs) => {
-            if (obs.y > pY + playerHeight && obs.y < pY + playerHeight + settings.obstacleSpeed + 2) {
-              if (obs.lane !== currentLane) {
-                scoreRef.current += 1;
-                setScore(scoreRef.current);
-              }
+            if (
+              HAZARD_TYPES.includes(obs.type) &&
+              obs.lane !== currentLane &&
+              obs.y > pY + playerHeight &&
+              obs.y < pY + playerHeight + settings.obstacleSpeed + 2
+            ) {
+              scoreRef.current += 1;
+              setScore(scoreRef.current);
             }
             return obs.y < H + OBSTACLE_SIZE;
           })
           .filter((obs) => {
-            const collides =
+            const overlapsPlayer =
               obs.lane === currentLane &&
               obs.y + OBSTACLE_SIZE > pY + settings.collisionTopPad &&
               obs.y < pY + playerHeight - settings.collisionBottomPad;
-            if (collides) hitOccurred = true;
-            return !collides;
+
+            if (!overlapsPlayer) return true;
+
+            if (!HAZARD_TYPES.includes(obs.type)) {
+              scoreRef.current += COLLECTIBLE_BONUS_POINTS[obs.type as 'leaf' | 'flower' | 'pinecone'];
+              setScore(scoreRef.current);
+              return false;
+            }
+
+            hitOccurred = true;
+            return false;
           });
 
         if (hitOccurred && !gameOverRef.current) {
@@ -221,7 +244,9 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   const obstacleEmoji = (type: ObstacleType) => {
     if (type === 'log') return '🪵';
     if (type === 'rock') return '🪨';
-    return '🌿';
+    if (type === 'flower') return '🌸';
+    if (type === 'pinecone') return '🌰';
+    return '🍃';
   };
 
   const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, 3 - lives));
@@ -301,7 +326,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
           <View style={styles.gameOverCard}>
             <Image source={riverImage} style={styles.gameOverRiverImage} resizeMode="cover" />
             <Text style={styles.gameOverTitle}>Koniec gry!</Text>
-            <Text style={styles.gameOverScore}>Wynik: {score} ominiętych przeszkód</Text>
+            <Text style={styles.gameOverScore}>Wynik: {score} pkt (ominięte przeszkody + zebrane skarby)</Text>
             {score > 0 && score >= bestScore && (
               <Text style={styles.gameOverRecord}>🏆 Nowy rekord!</Text>
             )}

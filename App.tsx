@@ -37,6 +37,8 @@ const brunoFaceImg = require('./assets/game/landing-page/Bruno.png');
 const felaFaceImg  = require('./assets/game/landing-page/Fela.png');
 const youtubeLogoImg = require('./assets/logo/youtube-logo.png');
 const spotifyLogoImg = require('./assets/logo/spotify.png');
+const felaBrunoImg = require('./assets/game/fela_i_bruno.png');
+const wakacjeImg = require('./assets/game/Wakacje.png');
 
 const VOICE_CLIPS: Record<string, number> = {
   'Koniec rundy': require('./assets/voices/1_koniec_rundy.mp3'),
@@ -55,19 +57,27 @@ const VOICE_CLIPS: Record<string, number> = {
   'Swietny rysunek': require('./assets/voices/14_swietny_rysunek.mp3'),
 };
 
-// Images used as match-3 gems (one per cell type 0-4)
+// Images used as match-3 gems (one per cell type 0-6)
 const GEM_IMAGES = [
   require('./assets/game/landing-page/Bruno.png'),
   require('./assets/game/landing-page/Fela.png'),
   require('./assets/game/Bruno_i_Fela.jpeg'),
   require('./assets/game/Dab.jpeg'),
   require('./assets/game/mapa.jpeg'),
+  require('./assets/game/fela_i_bruno.png'),
+  require('./assets/game/Wakacje.png'),
 ] as const;
 
 // Actual pixel dimensions of landing images
 // Bruno_Fela_1.jpg: 750x920 (portrait)  Bruno_Fela_2.png: 1117x1408 (portrait)
 const SPLASH_W = 750, SPLASH_H = 920;
 const MENU_W = 1117, MENU_H = 1408;
+
+// Reflex ("Łap Bruna i Felę!") game: 3 rounds, each with more targets on screen at once.
+const TAP_ROUND_DURATION = 15;
+const TAP_TARGETS_PER_ROUND: Record<1 | 2 | 3, number> = { 1: 1, 2: 2, 3: 3 };
+type TapChar = 'bruno' | 'fela' | 'razem';
+type TapTargetItem = { id: number; x: number; y: number; char: TapChar };
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
@@ -114,7 +124,7 @@ function getEpisodeSeason(episodeCode: string): 1 | 2 {
   return episodeCode.startsWith('S02') ? 2 : 1;
 }
 
-const gemColors = ['#e25a5a', '#4ca76d', '#4d7ad3', '#e6b94c', '#9a66d9'];
+const gemColors = ['#e25a5a', '#4ca76d', '#4d7ad3', '#e6b94c', '#9a66d9', '#3fa9c9', '#e08a3c'];
 
 function shuffleArray<T>(items: T[]) {
   const copy = [...items];
@@ -137,6 +147,8 @@ export default function App() {
   const [activeGameTab, setActiveGameTab] = useState<GameTab>('zrecznosciowa');
   const [fullscreenGame, setFullscreenGame] = useState<GameTab | null>(null);
   const [mapSeason, setMapSeason] = useState<1 | 2>(1);
+  const [showMapFullscreen, setShowMapFullscreen] = useState(false);
+  const [mapCleanView, setMapCleanView] = useState(false);
   const [quizSeason, setQuizSeason] = useState<1 | 2>(1);
   const [odcinkiSeason, setOdcinkiSeason] = useState<'all' | 1 | 2>('all');
   const [odcinkiDropdownOpen, setOdcinkiDropdownOpen] = useState(false);
@@ -163,13 +175,14 @@ export default function App() {
   const [shuffleTick, setShuffleTick] = useState(0);
 
   const [tapScore, setTapScore] = useState(0);
-  const [tapTimeLeft, setTapTimeLeft] = useState(20);
+  const [tapTimeLeft, setTapTimeLeft] = useState(TAP_ROUND_DURATION);
   const [tapPlaying, setTapPlaying] = useState(false);
   const [tapBest, setTapBest] = useState(0);
   const [tapArenaWidth, setTapArenaWidth] = useState(300);
   const [tapArenaHeight, setTapArenaHeight] = useState(210);
-  const [tapTarget, setTapTarget] = useState({ x: 120, y: 90 });
-  const [tapTargetChar, setTapTargetChar] = useState<'bruno' | 'fela'>('bruno');
+  const [tapRound, setTapRound] = useState<1 | 2 | 3>(1);
+  const [tapTargets, setTapTargets] = useState<TapTargetItem[]>([]);
+  const tapTargetIdRef = useRef(0);
 
   const [matchBoard, setMatchBoard] = useState<Board>(createInitialBoard());
   const [matchSelected, setMatchSelected] = useState<CellPos | null>(null);
@@ -500,18 +513,28 @@ export default function App() {
     const timer = setInterval(() => {
       setTapTimeLeft((current) => {
         if (current <= 1) {
-          clearInterval(timer);
-          setTapPlaying(false);
-          setTapGameOver(true);
-          announce('Koniec rundy');
-          return 0;
+          setTapRound((currentRound) => {
+            if (currentRound >= 3) {
+              clearInterval(timer);
+              setTapPlaying(false);
+              setTapGameOver(true);
+              announce('Koniec rundy');
+              return currentRound;
+            }
+            const nextRound = (currentRound + 1) as 1 | 2 | 3;
+            setTapTargets(spawnTapTargets(nextRound, tapArenaWidth, tapArenaHeight));
+            announce('Nowa plansza');
+            showFeedback(`Runda ${nextRound}!`);
+            return nextRound;
+          });
+          return TAP_ROUND_DURATION;
         }
         return current - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [tapPlaying]);
+  }, [tapPlaying, tapArenaWidth, tapArenaHeight]);
 
   useEffect(() => {
     if (!tapPlaying && tapScore > tapBest) {
@@ -521,34 +544,70 @@ export default function App() {
     }
   }, [tapBest, tapPlaying, tapScore]);
 
-  const moveTarget = () => {
+  const randomTapChar = (): TapChar => {
+    const r = Math.random();
+    if (r < 0.4) return 'bruno';
+    if (r < 0.8) return 'fela';
+    return 'razem';
+  };
+
+  // Places `count` non-overlapping targets at random spots inside the arena.
+  const spawnTapTargets = (count: number, arenaWidth: number, arenaHeight: number): TapTargetItem[] => {
+    const targetSize = 64;
+    const margin = 8;
+    const maxX = Math.max(margin, arenaWidth - targetSize - margin);
+    const maxY = Math.max(margin, arenaHeight - targetSize - margin);
+    const placed: TapTargetItem[] = [];
+
+    for (let i = 0; i < count; i += 1) {
+      let x = margin, y = margin;
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        x = margin + Math.random() * Math.max(1, maxX - margin);
+        y = margin + Math.random() * Math.max(1, maxY - margin);
+        const overlaps = placed.some((p) => Math.hypot(p.x - x, p.y - y) < targetSize * 1.1);
+        if (!overlaps) break;
+      }
+      placed.push({ id: tapTargetIdRef.current++, x, y, char: randomTapChar() });
+    }
+    return placed;
+  };
+
+  const respawnTapTarget = (id: number) => {
     const targetSize = 64;
     const margin = 8;
     const maxX = Math.max(margin, tapArenaWidth - targetSize - margin);
     const maxY = Math.max(margin, tapArenaHeight - targetSize - margin);
-    setTapTarget({
-      x: margin + Math.random() * Math.max(1, maxX - margin),
-      y: margin + Math.random() * Math.max(1, maxY - margin),
-    });
-    setTapTargetChar(Math.random() < 0.5 ? 'bruno' : 'fela');
+    setTapTargets((current) =>
+      current.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              x: margin + Math.random() * Math.max(1, maxX - margin),
+              y: margin + Math.random() * Math.max(1, maxY - margin),
+              char: randomTapChar(),
+            }
+          : t,
+      ),
+    );
   };
 
   const startTapGame = () => {
     setTapScore(0);
-    setTapTimeLeft(20);
+    setTapRound(1);
+    setTapTimeLeft(TAP_ROUND_DURATION);
     setTapPlaying(true);
     setTapGameOver(false);
     setDailyRounds((current) => current + 1);
     announce('Start');
-    moveTarget();
+    setTapTargets(spawnTapTargets(1, tapArenaWidth, tapArenaHeight));
   };
 
-  const hitTapTarget = () => {
+  const hitTapTarget = (target: TapTargetItem) => {
     if (!tapPlaying) {
       return;
     }
-    // Burst animation at current target position
-    setTapBurstPos({ x: tapTarget.x, y: tapTarget.y });
+    // Burst animation at the tapped target's position
+    setTapBurstPos({ x: target.x, y: target.y });
     tapBurstScale.setValue(0.3);
     tapBurstOpacity.setValue(0.9);
     Animated.parallel([
@@ -558,7 +617,7 @@ export default function App() {
     setTapScore((current) => current + 1);
     showFeedback('+1');
     announce('Brawo');
-    moveTarget();
+    respawnTapTarget(target.id);
   };
 
   const triggerMiss = (x: number, y: number) => {
@@ -937,12 +996,27 @@ export default function App() {
               </Pressable>
             </View>
 
+            {/* Map view controls: toggle markers on/off, and view fullscreen for closer analysis */}
+            <View style={styles.mapViewControls}>
+              <Pressable
+                style={[styles.mapViewBtn, mapCleanView && styles.mapViewBtnActive]}
+                onPress={() => setMapCleanView((v) => !v)}
+              >
+                <Text style={[styles.mapViewBtnText, mapCleanView && styles.mapViewBtnTextActive]}>
+                  {mapCleanView ? '📍 Pokaż znaczniki' : '🧭 Czysta mapa'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.mapViewBtn} onPress={() => setShowMapFullscreen(true)}>
+                <Text style={styles.mapViewBtnText}>🔍 Cała mapa na ekranie</Text>
+              </Pressable>
+            </View>
+
             <ImageBackground
               source={mapSeason === 1 ? mapImage : mapaS02Image}
               style={[styles.map, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
               imageStyle={{ resizeMode: 'cover' }}
             >
-              {(mapSeason === 1 ? seasonMapData : season2MapData).map((location) => {
+              {!mapCleanView && (mapSeason === 1 ? seasonMapData : season2MapData).map((location) => {
                 const isSelected = selectedLocationId === location.id;
                 return (
                   <Pressable
@@ -1280,7 +1354,16 @@ export default function App() {
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.nextSeasonText}>Wynik: {tapScore} | Rekord: {tapBest}</Text>
+                    <Text style={styles.nextSeasonText}>
+                      Runda {tapRound}/3 | Wynik: {tapScore} | Rekord: {tapBest}
+                    </Text>
+                    {tapPlaying && (
+                      <Text style={styles.sectionDescription}>
+                        {tapRound === 1 ? 'Tapnij jedną ikonkę!' :
+                         tapRound === 2 ? 'Dwie ikonki naraz — użyj dwóch palców!' :
+                         'Trzy ikonki naraz — refleks na maksa!'}
+                      </Text>
+                    )}
                     <Pressable
                       style={styles.tapArenaFs}
                       onLayout={(event) => {
@@ -1290,18 +1373,22 @@ export default function App() {
                       }}
                       onPress={(e) => triggerMiss(e.nativeEvent.locationX, e.nativeEvent.locationY)}
                     >
-                      {tapPlaying && (
+                      {tapPlaying && tapTargets.map((target) => (
                         <Pressable
-                          onPress={hitTapTarget}
-                          style={[styles.tapTarget, { left: tapTarget.x, top: tapTarget.y }]}
+                          key={target.id}
+                          onPress={() => hitTapTarget(target)}
+                          style={[styles.tapTarget, { left: target.x, top: target.y }]}
                         >
                           <Image
-                            source={tapTargetChar === 'bruno' ? brunoFaceImg : felaFaceImg}
+                            source={
+                              target.char === 'bruno' ? brunoFaceImg :
+                              target.char === 'fela' ? felaFaceImg : felaBrunoImg
+                            }
                             style={styles.tapFaceImage}
                             resizeMode="cover"
                           />
                         </Pressable>
-                      )}
+                      ))}
                       {tapBurstPos && (
                         <Animated.View
                           pointerEvents="none"
@@ -1340,7 +1427,7 @@ export default function App() {
                       <View style={styles.tapTimerWrap}>
                         <Text style={styles.tapTimerNumber}>{tapTimeLeft}</Text>
                         <View style={styles.tapTimerTrack}>
-                          <View style={[styles.tapTimerFill, { width: `${(tapTimeLeft / 20) * 100}%` as `${number}%` }]} />
+                          <View style={[styles.tapTimerFill, { width: `${(tapTimeLeft / TAP_ROUND_DURATION) * 100}%` as `${number}%` }]} />
                         </View>
                       </View>
                     )}
@@ -1469,6 +1556,50 @@ export default function App() {
           </ScrollView>
         </SafeAreaView>
       </ImageBackground>
+    </Modal>
+
+    {/* Fullscreen map — lets a child study the whole map up close, with or without markers */}
+    <Modal
+      visible={showMapFullscreen}
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={() => setShowMapFullscreen(false)}
+    >
+      <SafeAreaView style={styles.mapFullscreenWrap}>
+        <View style={styles.mapFullscreenHeader}>
+          <Pressable
+            style={[styles.mapViewBtn, mapCleanView && styles.mapViewBtnActive, { flex: 0, paddingHorizontal: 14 }]}
+            onPress={() => setMapCleanView((v) => !v)}
+          >
+            <Text style={[styles.mapViewBtnText, mapCleanView && styles.mapViewBtnTextActive]}>
+              {mapCleanView ? '📍 Pokaż znaczniki' : '🧭 Czysta mapa'}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => setShowMapFullscreen(false)} style={styles.fsCloseBtn}>
+            <Text style={styles.fsCloseBtnText}>✕ Zamknij</Text>
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.mapFullscreenScroll}
+          maximumZoomScale={3}
+          minimumZoomScale={1}
+        >
+          <ImageBackground
+            source={mapSeason === 1 ? mapImage : mapaS02Image}
+            style={[styles.mapFullscreenImage, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
+            imageStyle={{ resizeMode: 'contain' }}
+          >
+            {!mapCleanView && (mapSeason === 1 ? seasonMapData : season2MapData).map((location) => (
+              <View
+                key={location.id}
+                style={[styles.pin, { left: `${location.x}%`, top: `${location.y}%`, backgroundColor: '#ffffff' }]}
+              >
+                <Text style={styles.pinEmoji}>{location.icon}</Text>
+              </View>
+            ))}
+          </ImageBackground>
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
 
     {/* Swimming character selection modal */}
@@ -1823,6 +1954,51 @@ const styles = StyleSheet.create({
   },
   mapSeasonBtnTextActive: {
     color: '#fff',
+  },
+  mapViewControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mapViewBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    backgroundColor: '#fff4d7',
+    alignItems: 'center',
+  },
+  mapViewBtnActive: {
+    backgroundColor: '#2f8b5f',
+    borderColor: '#2f8b5f',
+  },
+  mapViewBtnText: {
+    fontWeight: '700',
+    color: '#7a542f',
+    fontSize: 13,
+  },
+  mapViewBtnTextActive: {
+    color: '#fff',
+  },
+  mapFullscreenWrap: {
+    flex: 1,
+    backgroundColor: '#1f1710',
+  },
+  mapFullscreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  mapFullscreenScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  mapFullscreenImage: {
+    width: '100%',
   },
   seasonHeader: {
     backgroundColor: 'rgba(47,143,91,0.15)',
