@@ -514,19 +514,16 @@ export default function App() {
     const timer = setInterval(() => {
       setTapTimeLeft((current) => {
         if (current <= 1) {
+          // Pause and show the centered round-start overlay before the next round begins.
+          setTapPlaying(false);
+          setTapTargets([]);
           setTapRound((currentRound) => {
             if (currentRound >= 3) {
-              clearInterval(timer);
-              setTapPlaying(false);
               setTapGameOver(true);
               announce('Koniec rundy');
               return currentRound;
             }
-            const nextRound = (currentRound + 1) as 1 | 2 | 3;
-            setTapTargets(spawnTapTargets(nextRound, tapArenaWidth, tapArenaHeight));
-            announce('Nowa plansza');
-            showFeedback(`Runda ${nextRound}!`);
-            return nextRound;
+            return (currentRound + 1) as 1 | 2 | 3;
           });
           return TAP_ROUND_DURATION;
         }
@@ -535,7 +532,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [tapPlaying, tapArenaWidth, tapArenaHeight]);
+  }, [tapPlaying]);
 
   useEffect(() => {
     if (!tapPlaying && tapScore > tapBest) {
@@ -592,15 +589,22 @@ export default function App() {
     );
   };
 
-  const startTapGame = () => {
-    setTapScore(0);
-    setTapRound(1);
+  // Begins the given round: resets score/daily-rounds only when starting fresh at round 1.
+  const beginTapRound = (round: 1 | 2 | 3) => {
+    if (round === 1) {
+      setTapScore(0);
+      setDailyRounds((current) => current + 1);
+    }
+    setTapRound(round);
     setTapTimeLeft(TAP_ROUND_DURATION);
-    setTapPlaying(true);
     setTapGameOver(false);
-    setDailyRounds((current) => current + 1);
-    announce('Start');
-    setTapTargets(spawnTapTargets(1, tapArenaWidth, tapArenaHeight));
+    setTapTargets(spawnTapTargets(round, tapArenaWidth, tapArenaHeight));
+    setTapPlaying(true);
+    announce(round === 1 ? 'Start' : 'Nowa plansza');
+  };
+
+  const startTapGame = () => {
+    beginTapRound(1);
   };
 
   const hitTapTarget = (target: TapTargetItem) => {
@@ -1413,14 +1417,17 @@ export default function App() {
                           }]}
                         />
                       )}
-                      {/* Start overlay when game not running */}
+                      {/* Centered round-start overlay: shown before the first round and again before each new round */}
                       {!tapPlaying && (
                         <View style={styles.arenaStartOverlay}>
+                          <Text style={styles.arenaStartTitle}>Runda {tapRound}/3</Text>
                           <Text style={styles.arenaStartDesc}>
-                            {'Sprawdź jak szybki jesteś!\nTapnij Bruna lub Felę!'}
+                            {tapRound === 1 ? 'Sprawdź jak szybki jesteś!\nTapnij Bruna lub Felę!' :
+                             tapRound === 2 ? 'Teraz dwie ikonki naraz —\nużyj dwóch palców!' :
+                             'Trzy ikonki naraz —\nrefleks na maksa!'}
                           </Text>
-                          <Pressable style={styles.arenaStartBtn} onPress={startTapGame}>
-                            <Text style={styles.arenaStartBtnText}>▶ Start</Text>
+                          <Pressable style={styles.arenaStartBtn} onPress={() => beginTapRound(tapRound)}>
+                            <Text style={styles.arenaStartBtnText}>▶ Start rundy {tapRound}</Text>
                           </Pressable>
                         </View>
                       )}
@@ -2415,6 +2422,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     backgroundColor: 'rgba(255,252,240,0.55)',
+  },
+  arenaStartTitle: {
+    color: '#cb3f45',
+    fontWeight: '900',
+    fontSize: 26,
   },
   arenaStartDesc: {
     color: '#3a2000',
