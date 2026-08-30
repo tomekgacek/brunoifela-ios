@@ -71,6 +71,38 @@ interface Obstacle {
   type: ObstacleType;
 }
 
+interface ScorePopupItem {
+  id: number;
+  x: number;
+  y: number;
+  points: number;
+}
+
+// Floating "+N" text that rises and fades out, then removes itself.
+const ScorePopup: React.FC<{ item: ScorePopupItem; onDone: (id: number) => void }> = ({ item, onDone }) => {
+  const translateY = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: -60, duration: 700, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 700, useNativeDriver: true }),
+    ]).start(() => onDone(item.id));
+  }, [item.id, onDone, opacity, translateY]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.scorePopup,
+        { left: item.x - 30, top: item.y, opacity, transform: [{ translateY }] },
+      ]}
+    >
+      <Text style={styles.scorePopupText}>+{item.points}</Text>
+    </Animated.View>
+  );
+};
+
 export interface SwimmingGameProps {
   character: 'bruno' | 'fela';
   initialDifficulty?: Difficulty;
@@ -95,6 +127,12 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
   const [gameOver, setGameOver] = useState(false);
   const [bestScore, setBestScore] = useState(0);
   const [difficulty] = useState<Difficulty>(initialDifficulty);
+  const [scorePopups, setScorePopups] = useState<ScorePopupItem[]>([]);
+  const scorePopupIdRef = useRef(0);
+
+  const removeScorePopup = useCallback((id: number) => {
+    setScorePopups((prev) => prev.filter((p) => p.id !== id));
+  }, []);
 
   const livesRef = useRef(3);
   const scoreRef = useRef(0);
@@ -155,6 +193,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
         const currentLane = playerLaneRef.current;
         const pY = H * PLAYER_BASELINE_FRACTION - playerHeight;
         let hitOccurred = false;
+        const newPopups: ScorePopupItem[] = [];
 
         const updated = prev
           .map((obs) => ({ ...obs, y: obs.y + settings.obstacleSpeed }))
@@ -179,14 +218,25 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
             if (!overlapsPlayer) return true;
 
             if (!HAZARD_TYPES.includes(obs.type)) {
-              scoreRef.current += COLLECTIBLE_BONUS_POINTS[obs.type as 'leaf' | 'flower' | 'pinecone'];
+              const points = COLLECTIBLE_BONUS_POINTS[obs.type as 'leaf' | 'flower' | 'pinecone'];
+              scoreRef.current += points;
               setScore(scoreRef.current);
+              newPopups.push({
+                id: scorePopupIdRef.current++,
+                x: W * LANE_X_FRACTIONS[obs.lane],
+                y: obs.y,
+                points,
+              });
               return false;
             }
 
             hitOccurred = true;
             return false;
           });
+
+        if (newPopups.length > 0) {
+          setScorePopups((prev2) => [...prev2, ...newPopups]);
+        }
 
         if (hitOccurred && !gameOverRef.current) {
           const newLives = livesRef.current - 1;
@@ -204,7 +254,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     }, FRAME_MS);
 
     return () => clearInterval(loop);
-  }, [gameOver, H, playerHeight, settings, triggerHit, endGame]);
+  }, [gameOver, H, W, playerHeight, settings, triggerHit, endGame]);
 
   // Spawn loop
   useEffect(() => {
@@ -301,6 +351,11 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
         >
           <Text style={styles.obstacleText}>{obstacleEmoji(obs.type)}</Text>
         </View>
+      ))}
+
+      {/* Floating +N score popups shown when a collectible is picked up */}
+      {!gameOver && scorePopups.map((popup) => (
+        <ScorePopup key={popup.id} item={popup} onDone={removeScorePopup} />
       ))}
 
       {/* Player */}
@@ -424,6 +479,18 @@ const styles = StyleSheet.create({
   },
   obstacleText: {
     fontSize: 52,
+  },
+  scorePopup: {
+    position: 'absolute',
+    zIndex: 10,
+  },
+  scorePopupText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#ffd54f',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   controls: {
     position: 'absolute',
