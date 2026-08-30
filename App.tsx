@@ -2535,6 +2535,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 11,
+    alignItems: 'center',
   },
   gameEndBtnSecondary: {
     backgroundColor: '#fff4d7',

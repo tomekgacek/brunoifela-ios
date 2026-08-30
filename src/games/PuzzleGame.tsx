@@ -107,6 +107,8 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [setupStep, setSetupStep] = useState<'difficulty' | 'image' | 'play'>('difficulty');
   const [hasStarted, setHasStarted] = useState(false);
+  const [selectedTileIdx, setSelectedTileIdx] = useState<number | null>(null);
+  const [possibleMoves, setPossibleMoves] = useState<number[]>([]);
 
   const emptyCount = DIFFICULTY_EMPTY_COUNT[difficulty];
 
@@ -140,16 +142,13 @@ export function PuzzleGame({ onRoundComplete }: Props) {
     cropY = (cropRenderedH - boardSize) / 2;
   }
 
-  const handleTileTap = (idx: number) => {
-    if (solved) return;
-    if (tiles[idx] === 0) return;
-    const emptyNeighbor = getNeighbors(idx).find((n) => tiles[n] === 0);
-    if (emptyNeighbor === undefined) return;
-
+  const moveTile = (fromIdx: number, toIdx: number) => {
     const next = [...tiles];
-    [next[idx], next[emptyNeighbor]] = [next[emptyNeighbor], next[idx]];
+    [next[fromIdx], next[toIdx]] = [next[toIdx], next[fromIdx]];
     setTiles(next);
     setMoveCount((c) => c + 1);
+    setSelectedTileIdx(null);
+    setPossibleMoves([]);
 
     if (isSolved(next, emptyCount)) {
       setSolved(true);
@@ -157,11 +156,41 @@ export function PuzzleGame({ onRoundComplete }: Props) {
     }
   };
 
+  const handleTileTap = (idx: number) => {
+    if (solved) return;
+
+    // A tile was already selected and is waiting for the user to pick which empty slot to slide into.
+    if (selectedTileIdx !== null) {
+      if (possibleMoves.includes(idx)) {
+        moveTile(selectedTileIdx, idx);
+        return;
+      }
+      setSelectedTileIdx(null);
+      setPossibleMoves([]);
+      if (idx === selectedTileIdx) return;
+    }
+
+    if (tiles[idx] === 0) return;
+    const emptyNeighbors = getNeighbors(idx).filter((n) => tiles[n] === 0);
+    if (emptyNeighbors.length === 0) return;
+
+    if (emptyNeighbors.length === 1) {
+      moveTile(idx, emptyNeighbors[0]);
+      return;
+    }
+
+    // Multiple possible directions — highlight them and wait for the user to choose.
+    setSelectedTileIdx(idx);
+    setPossibleMoves(emptyNeighbors);
+  };
+
   const resetPuzzle = (newImageIdx?: number, newDifficulty?: Difficulty) => {
     const effectiveDifficulty = newDifficulty ?? difficulty;
     setTiles(scramble(80, DIFFICULTY_EMPTY_COUNT[effectiveDifficulty]));
     setMoveCount(0);
     setSolved(false);
+    setSelectedTileIdx(null);
+    setPossibleMoves([]);
     if (newImageIdx !== undefined) {
       setImageIdx(newImageIdx);
     }
@@ -226,7 +255,11 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.title}>Układaj kafelki, aż obrazek będzie kompletny!</Text>
+      <Text style={s.title}>
+        {selectedTileIdx !== null
+          ? 'Wybrano kafelek — tapnij podświetlone puste miejsce, aby go przesunąć!'
+          : 'Układaj kafelki, aż obrazek będzie kompletny!'}
+      </Text>
       <View style={s.statsRow}>
         <Text style={s.stats}>Ruchy: {moveCount}</Text>
         <Text style={s.stats}>{currentImage.label} · {DIFFICULTY_LABELS[difficulty]}</Text>
@@ -240,11 +273,19 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         >
         {tiles.map((tile, idx) => {
           if (tile === 0) {
+            const isCandidate = possibleMoves.includes(idx);
             return (
-              <View
+              <Pressable
                 key={`empty-${idx}`}
-                style={[s.tile, { width: tileSize, height: tileSize, backgroundColor: '#e8d9b8' }]}
-              />
+                onPress={() => handleTileTap(idx)}
+                style={[
+                  s.tile,
+                  { width: tileSize, height: tileSize, backgroundColor: '#e8d9b8' },
+                  isCandidate && s.tileCandidate,
+                ]}
+              >
+                {isCandidate && <Text style={s.tileCandidateIcon}>👉</Text>}
+              </Pressable>
             );
           }
 
@@ -256,7 +297,11 @@ export function PuzzleGame({ onRoundComplete }: Props) {
             <Pressable
               key={tile}
               onPress={() => handleTileTap(idx)}
-              style={[s.tile, { width: tileSize, height: tileSize, overflow: 'hidden' }]}
+              style={[
+                s.tile,
+                { width: tileSize, height: tileSize, overflow: 'hidden' },
+                selectedTileIdx === idx && s.tileSelected,
+              ]}
             >
               <Image
                 source={currentImage.source}
@@ -398,6 +443,20 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   tile: {},
+  tileSelected: {
+    borderWidth: 3,
+    borderColor: '#2f8b5f',
+  },
+  tileCandidate: {
+    backgroundColor: '#ffe9a8',
+    borderWidth: 3,
+    borderColor: '#f0a93c',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tileCandidateIcon: {
+    fontSize: 24,
+  },
   solvedOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,

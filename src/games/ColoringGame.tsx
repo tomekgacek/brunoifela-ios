@@ -115,6 +115,9 @@ export function ColoringGame({ onRoundComplete }: Props) {
         onMoveShouldSetPanResponder: () => true,
         onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponderCapture: () => true,
+        // Keep the touch once granted so the surrounding ScrollView can't hijack the stroke mid-paint.
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
         onPanResponderGrant: (e) => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY),
         onPanResponderMove: (e) => paintAt(e.nativeEvent.locationX, e.nativeEvent.locationY),
         onPanResponderRelease: endStroke,
