@@ -105,7 +105,8 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const [moveCount, setMoveCount] = useState(0);
   const [solved, setSolved] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [showPreview, setShowPreview] = useState(false);
+  const [setupStep, setSetupStep] = useState<'difficulty' | 'image' | 'play'>('difficulty');
+  const [hasStarted, setHasStarted] = useState(false);
 
   const emptyCount = DIFFICULTY_EMPTY_COUNT[difficulty];
 
@@ -169,56 +170,67 @@ export function PuzzleGame({ onRoundComplete }: Props) {
     }
   };
 
+  const chooseDifficulty = (level: Difficulty) => {
+    resetPuzzle(undefined, level);
+    setSetupStep(hasStarted ? 'play' : 'image');
+  };
+
+  const chooseImage = (newImageIdx: number) => {
+    resetPuzzle(newImageIdx);
+    setHasStarted(true);
+    setSetupStep('play');
+  };
+
+  if (setupStep === 'difficulty') {
+    return (
+      <View style={s.wrap}>
+        <Text style={s.title}>Wybierz poziom trudności</Text>
+        <View style={s.choiceGrid}>
+          {(Object.keys(DIFFICULTY_EMPTY_COUNT) as Difficulty[]).map((level) => (
+            <Pressable
+              key={level}
+              onPress={() => chooseDifficulty(level)}
+              style={[s.choiceBtn, difficulty === level && s.pickerBtnActive]}
+            >
+              <Text style={[s.choiceBtnText, difficulty === level && s.pickerBtnTextActive]}>
+                {DIFFICULTY_LABELS[level]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
+  if (setupStep === 'image') {
+    return (
+      <View style={s.wrap}>
+        <Text style={s.title}>Wybierz rysunek do puzzli</Text>
+        <View style={s.imageGrid}>
+          {PUZZLE_IMAGES.map((img, i) => (
+            <Pressable
+              key={img.id}
+              onPress={() => chooseImage(i)}
+              style={[s.imageChoice, imageIdx === i && s.imageChoiceActive]}
+            >
+              <Image source={img.source} style={s.imageChoicePreview} resizeMode="cover" />
+              <Text style={[s.pickerBtnText, imageIdx === i && s.pickerBtnTextActive]}>
+                {img.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.wrap}>
       <Text style={s.title}>Układaj kafelki, aż obrazek będzie kompletny!</Text>
-
-      <View style={s.pickerRow}>
-        {PUZZLE_IMAGES.map((img, i) => (
-          <Pressable
-            key={img.id}
-            onPress={() => resetPuzzle(i)}
-            style={[s.pickerBtn, imageIdx === i && s.pickerBtnActive]}
-          >
-            <Text style={[s.pickerBtnText, imageIdx === i && s.pickerBtnTextActive]}>
-              {img.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <View style={s.pickerRow}>
-        {(Object.keys(DIFFICULTY_EMPTY_COUNT) as Difficulty[]).map((level) => (
-          <Pressable
-            key={level}
-            onPress={() => resetPuzzle(undefined, level)}
-            style={[s.pickerBtn, difficulty === level && s.pickerBtnActive]}
-          >
-            <Text style={[s.pickerBtnText, difficulty === level && s.pickerBtnTextActive]}>
-              {DIFFICULTY_LABELS[level]}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Moves + preview toggle — above board */}
       <View style={s.statsRow}>
         <Text style={s.stats}>Ruchy: {moveCount}</Text>
-        <Pressable onPress={() => setShowPreview((v) => !v)} style={s.previewBtn}>
-          <Text style={s.previewBtnText}>{showPreview ? '× Ukryj' : '👁️ Podgląd'}</Text>
-        </Pressable>
+        <Text style={s.stats}>{currentImage.label} · {DIFFICULTY_LABELS[difficulty]}</Text>
       </View>
-
-      {showPreview && (
-        <View style={s.previewBox}>
-          <Image
-            source={currentImage.source}
-            style={s.previewImage}
-            resizeMode="contain"
-          />
-          <Text style={s.previewLabel}>Tak powinien wyglądać gotowy obrazek ↑</Text>
-        </View>
-      )}
 
       {/* Board */}
       <View style={s.boardSection}>
@@ -230,7 +242,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
           if (tile === 0) {
             return (
               <View
-                key="empty"
+                key={`empty-${idx}`}
                 style={[s.tile, { width: tileSize, height: tileSize, backgroundColor: '#e8d9b8' }]}
               />
             );
@@ -274,9 +286,14 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         )}
       </View>
 
-      <Pressable style={s.resetBtn} onPress={() => resetPuzzle()}>
-        <Text style={s.resetBtnText}>Nowe układanie</Text>
-      </Pressable>
+      <View style={s.actionsRow}>
+        <Pressable style={s.resetBtn} onPress={() => setSetupStep('image')}>
+          <Text style={s.resetBtnText}>Zmień Puzzle</Text>
+        </Pressable>
+        <Pressable style={s.resetBtn} onPress={() => setSetupStep('difficulty')}>
+          <Text style={s.resetBtnText}>Zmień Poziom</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -331,6 +348,30 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
   },
   title: { color: '#3d2b18', fontWeight: '800', fontSize: 14, lineHeight: 20 },
+  choiceGrid: { gap: 8 },
+  choiceBtn: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    backgroundColor: '#fff9ea',
+    alignItems: 'center',
+  },
+  choiceBtnText: { fontWeight: '800', color: '#664d31', fontSize: 16 },
+  imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  imageChoice: {
+    width: '48%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    backgroundColor: '#fff9ea',
+    overflow: 'hidden',
+    alignItems: 'center',
+    paddingBottom: 8,
+    gap: 7,
+  },
+  imageChoiceActive: { backgroundColor: '#cb3f45', borderColor: '#cb3f45' },
+  imageChoicePreview: { width: '100%', height: 92 },
   pickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pickerBtn: {
     paddingHorizontal: 10,
@@ -377,6 +418,7 @@ const s = StyleSheet.create({
   },
   solvedBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   resetBtn: {
+    flex: 1,
     backgroundColor: '#fff4d7',
     borderRadius: 10,
     borderWidth: 1,
@@ -385,5 +427,6 @@ const s = StyleSheet.create({
     marginTop: 4,
     alignItems: 'center',
   },
+  actionsRow: { flexDirection: 'row', gap: 8 },
   resetBtnText: { color: '#7a542f', fontWeight: '800' },
 });

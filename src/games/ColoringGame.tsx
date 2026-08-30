@@ -5,7 +5,6 @@ import {
   Linking,
   PanResponder,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -58,6 +57,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
   const [dots, setDots] = useState<Dot[]>([]);
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectingImage, setSelectingImage] = useState(true);
 
   const containerWidth = Math.max(100, screenW - 84);
   const gridH = containerWidth * CANVAS_ASPECT;
@@ -128,6 +128,11 @@ export function ColoringGame({ onRoundComplete }: Props) {
     lastPointRef.current = null;
     setSaved(false);
     if (newIdx !== undefined) setImageIdx(newIdx);
+  };
+
+  const chooseColoringImage = (newIdx: number) => {
+    resetColoring(newIdx);
+    setSelectingImage(false);
   };
 
   const askForMediaPermission = async () => {
@@ -203,17 +208,24 @@ export function ColoringGame({ onRoundComplete }: Props) {
   const brushArea = Math.PI * brushRadius * brushRadius;
   const pct = Math.min(100, Math.round((dots.length * brushArea * 0.45) / canvasArea * 100));
 
+  if (selectingImage) {
+    return (
+      <View style={s.wrap}>
+        <Text style={s.title}>Wybierz rysunek do kolorowania</Text>
+        <View style={s.imageGrid}>
+          {COLORING_IMAGES.map((img, i) => (
+            <Pressable key={img.id} onPress={() => chooseColoringImage(i)} style={s.imageChoice}>
+              <Image source={img.source} style={s.imageChoicePreview} resizeMode="cover" />
+              <Text style={s.pickerBtnText}>{img.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.wrap}>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pickerRow}>
-        {COLORING_IMAGES.map((img, i) => (
-          <Pressable key={img.id} onPress={() => resetColoring(i)} style={[s.pickerBtn, imageIdx === i && s.pickerBtnActive]}>
-            <Text style={[s.pickerBtnText, imageIdx === i && s.pickerBtnTextActive]}>{img.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
       <Text style={s.stats}>Pomalowane: {pct}%{saved ? '  ✅ Zapisano!' : ''}</Text>
 
       {/* Color palette + eraser */}
@@ -282,7 +294,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
               width: dot.radius * 2,
               height: dot.radius * 2,
               borderRadius: dot.radius,
-              backgroundColor: dot.color + 'cc',
+              backgroundColor: dot.color + '88',
             }}
           />
         ))}
@@ -290,7 +302,10 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       <View style={s.actions}>
         <Pressable style={[s.doneBtn, isSaving && s.doneBtnDisabled]} onPress={handleSave} disabled={isSaving}>
-          <Text style={s.doneBtnText}>{isSaving ? 'Zapisywanie...' : '💾 Zapisz rysunek'}</Text>
+          <Text style={s.doneBtnText}>{isSaving ? 'Zapisywanie...' : 'Zapisz'}</Text>
+        </Pressable>
+        <Pressable style={s.resetBtn} onPress={() => setSelectingImage(true)}>
+          <Text style={s.resetBtnText}>Zmień</Text>
         </Pressable>
         <Pressable style={s.resetBtn} onPress={() => resetColoring()}>
           <Text style={s.resetBtnText}>Wyczyść</Text>
@@ -312,6 +327,19 @@ export function ColoringGame({ onRoundComplete }: Props) {
 const s = StyleSheet.create({
   wrap: { gap: 10 },
   title: { color: '#3d2b18', fontWeight: '800', fontSize: 14, lineHeight: 20 },
+  imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  imageChoice: {
+    width: '48%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e3c88f',
+    backgroundColor: '#fff9ea',
+    overflow: 'hidden',
+    alignItems: 'center',
+    paddingBottom: 8,
+    gap: 7,
+  },
+  imageChoicePreview: { width: '100%', height: 108 },
   pickerRow: { gap: 6, paddingRight: 12 },
   pickerBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: '#e3c88f', backgroundColor: '#fff9ea' },
   pickerBtnActive: { backgroundColor: '#cb3f45', borderColor: '#cb3f45' },

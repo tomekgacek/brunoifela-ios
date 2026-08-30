@@ -148,7 +148,7 @@ export default function App() {
   const [fullscreenGame, setFullscreenGame] = useState<GameTab | null>(null);
   const [mapSeason, setMapSeason] = useState<1 | 2>(1);
   const [showMapFullscreen, setShowMapFullscreen] = useState(false);
-  const [mapCleanView, setMapCleanView] = useState(false);
+  const [mapCleanView, setMapCleanView] = useState(true);
   const [quizSeason, setQuizSeason] = useState<1 | 2>(1);
   const [odcinkiSeason, setOdcinkiSeason] = useState<'all' | 1 | 2>('all');
   const [odcinkiDropdownOpen, setOdcinkiDropdownOpen] = useState(false);
@@ -215,6 +215,7 @@ export default function App() {
   // Swimming game state
   const [showSwimmingCharacterSelect, setShowSwimmingCharacterSelect] = useState(false);
   const [showSwimmingDifficultySelect, setShowSwimmingDifficultySelect] = useState(false);
+  const [showSwimmingLegend, setShowSwimmingLegend] = useState(false);
   const [swimmingCharacter, setSwimmingCharacter] = useState<'bruno' | 'fela'>('bruno');
   const [swimmingDifficulty, setSwimmingDifficulty] = useState<'easy' | 'normal'>('normal');
   const [showSwimmingGame, setShowSwimmingGame] = useState(false);
@@ -1014,7 +1015,7 @@ export default function App() {
             <ImageBackground
               source={mapSeason === 1 ? mapImage : mapaS02Image}
               style={[styles.map, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
-              imageStyle={{ resizeMode: 'cover' }}
+              imageStyle={styles.mapImageStyle}
             >
               {!mapCleanView && (mapSeason === 1 ? seasonMapData : season2MapData).map((location) => {
                 const isSelected = selectedLocationId === location.id;
@@ -1354,8 +1355,9 @@ export default function App() {
                   </View>
                 ) : (
                   <>
+                    <Text style={styles.tapRoundBadge}>Runda {tapRound}</Text>
                     <Text style={styles.nextSeasonText}>
-                      Runda {tapRound}/3 | Wynik: {tapScore} | Rekord: {tapBest}
+                      Ikonki: {TAP_TARGETS_PER_ROUND[tapRound]} | Wynik: {tapScore} | Rekord: {tapBest}
                     </Text>
                     {tapPlaying && (
                       <Text style={styles.sectionDescription}>
@@ -1657,7 +1659,7 @@ export default function App() {
               onPress={() => {
                 setSwimmingDifficulty('easy');
                 setShowSwimmingDifficultySelect(false);
-                setShowSwimmingGame(true);
+                setShowSwimmingLegend(true);
               }}
             >
               <Text style={styles.characterSelectEmoji}>🛟</Text>
@@ -1668,13 +1670,42 @@ export default function App() {
               onPress={() => {
                 setSwimmingDifficulty('normal');
                 setShowSwimmingDifficultySelect(false);
-                setShowSwimmingGame(true);
+                setShowSwimmingLegend(true);
               }}
             >
               <Text style={styles.characterSelectEmoji}>🌊</Text>
               <Text style={styles.characterSelectLabel}>Normalny</Text>
             </Pressable>
           </View>
+        </View>
+      </View>
+    </Modal>
+
+    <Modal
+      visible={showSwimmingLegend}
+      animationType="fade"
+      transparent
+      statusBarTranslucent
+      onRequestClose={() => setShowSwimmingLegend(false)}
+    >
+      <View style={styles.characterSelectOverlay}>
+        <View style={styles.characterSelectCard}>
+          <Text style={styles.characterSelectTitle}>Legenda punktów</Text>
+          <View style={styles.swimmingLegendList}>
+            <Text style={styles.swimmingLegendItem}>🍃 Listek: +3 pkt</Text>
+            <Text style={styles.swimmingLegendItem}>🌸 Kwiatek: +5 pkt</Text>
+            <Text style={styles.swimmingLegendItem}>🌰 Szyszka: +4 pkt</Text>
+            <Text style={styles.swimmingLegendItem}>🪵🪨 Ominięta przeszkoda: +1 pkt</Text>
+          </View>
+          <Pressable
+            style={styles.gameEndBtn}
+            onPress={() => {
+              setShowSwimmingLegend(false);
+              setShowSwimmingGame(true);
+            }}
+          >
+            <Text style={styles.gameEndBtnText}>Start</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -1864,6 +1895,17 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: '#ffffff',
+  },
+  tapRoundBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#cb3f45',
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '900',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   episodePicker: {
     gap: 8,
@@ -2673,5 +2715,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#402b15',
+  },
+  swimmingLegendList: {
+    gap: 10,
+  },
+  swimmingLegendItem: {
+    color: '#402b15',
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
