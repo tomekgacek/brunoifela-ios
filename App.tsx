@@ -1703,6 +1703,7 @@ export default function App() {
             <Text style={styles.swimmingLegendItem}>🌸 Kwiatek: +5 pkt</Text>
             <Text style={styles.swimmingLegendItem}>🌰 Szyszka: +4 pkt</Text>
             <Text style={styles.swimmingLegendItem}>🪵🪨 Ominięta przeszkoda: +1 pkt</Text>
+            <Text style={styles.swimmingLegendItem}>❤️ Serduszko (bardzo rzadkie!): dodatkowe życie</Text>
           </View>
           <Pressable
             style={styles.gameEndBtn}

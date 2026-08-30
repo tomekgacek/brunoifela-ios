@@ -55,9 +55,10 @@ const DIFFICULTY_CONFIG: Record<Difficulty, {
   },
 };
 
-type ObstacleType = 'log' | 'rock' | 'leaf' | 'flower' | 'pinecone';
+type ObstacleType = 'log' | 'rock' | 'leaf' | 'flower' | 'pinecone' | 'heart';
 // Hazards cost a life on collision; the rest are collectibles worth bonus points.
 const HAZARD_TYPES: ObstacleType[] = ['log', 'rock'];
+const MAX_LIVES = 3;
 const COLLECTIBLE_BONUS_POINTS: Record<'leaf' | 'flower' | 'pinecone', number> = {
   leaf: 3,
   flower: 5,
@@ -75,10 +76,10 @@ interface ScorePopupItem {
   id: number;
   x: number;
   y: number;
-  points: number;
+  label: string;
 }
 
-// Floating "+N" text that rises and fades out, then removes itself.
+// Floating text that rises and fades out, then removes itself.
 const ScorePopup: React.FC<{ item: ScorePopupItem; onDone: (id: number) => void }> = ({ item, onDone }) => {
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -98,7 +99,7 @@ const ScorePopup: React.FC<{ item: ScorePopupItem; onDone: (id: number) => void 
         { left: item.x - 30, top: item.y, opacity, transform: [{ translateY }] },
       ]}
     >
-      <Text style={styles.scorePopupText}>+{item.points}</Text>
+      <Text style={styles.scorePopupText}>{item.label}</Text>
     </Animated.View>
   );
 };
@@ -167,15 +168,16 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     onRoundComplete(finalScore);
   }, [onRoundComplete]);
 
-  // Spawn obstacle — leaf/flower/pinecone are bonus-point collectibles, logs/rocks are hazards to dodge.
+  // Spawn obstacle — leaf/flower/pinecone are bonus-point collectibles, hearts are a very rare extra life, logs/rocks are hazards to dodge.
   const spawnObstacle = useCallback(() => {
     if (gameOverRef.current) return;
     const lane = Math.floor(Math.random() * 3);
     const r = Math.random();
     let type: ObstacleType;
-    if (r < 0.2) type = 'leaf';
-    else if (r < 0.35) type = 'flower';
-    else if (r < 0.5) type = 'pinecone';
+    if (r < 0.03) type = 'heart';
+    else if (r < 0.23) type = 'leaf';
+    else if (r < 0.38) type = 'flower';
+    else if (r < 0.53) type = 'pinecone';
     else type = Math.random() < 0.5 ? 'log' : 'rock';
     setObstacles((prev) => [
       ...prev,
@@ -217,6 +219,20 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
 
             if (!overlapsPlayer) return true;
 
+            if (obs.type === 'heart') {
+              if (livesRef.current < MAX_LIVES) {
+                livesRef.current += 1;
+                setLives(livesRef.current);
+                newPopups.push({
+                  id: scorePopupIdRef.current++,
+                  x: W * LANE_X_FRACTIONS[obs.lane],
+                  y: obs.y,
+                  label: '+1 ❤️',
+                });
+              }
+              return false;
+            }
+
             if (!HAZARD_TYPES.includes(obs.type)) {
               const points = COLLECTIBLE_BONUS_POINTS[obs.type as 'leaf' | 'flower' | 'pinecone'];
               scoreRef.current += points;
@@ -225,7 +241,7 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
                 id: scorePopupIdRef.current++,
                 x: W * LANE_X_FRACTIONS[obs.lane],
                 y: obs.y,
-                points,
+                label: `+${points}`,
               });
               return false;
             }
@@ -281,8 +297,8 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
 
   const restartGame = () => {
     setObstacles([]);
-    setLives(3);
-    livesRef.current = 3;
+    setLives(MAX_LIVES);
+    livesRef.current = MAX_LIVES;
     setScore(0);
     scoreRef.current = 0;
     setPlayerLane(1);
@@ -296,10 +312,11 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
     if (type === 'rock') return '🪨';
     if (type === 'flower') return '🌸';
     if (type === 'pinecone') return '🌰';
+    if (type === 'heart') return '❤️';
     return '🍃';
   };
 
-  const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, 3 - lives));
+  const heartStr = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, MAX_LIVES - lives));
   const riverPlayer = useVideoPlayer(riverVideo, (player) => {
     player.loop = true;
     player.muted = true;
