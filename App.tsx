@@ -109,9 +109,88 @@ const SEASON_MEDIA_PLACEHOLDER_LINKS: Required<EpisodeMediaLinks> = {
   spotify: 'https://open.spotify.com/show/1WQ1pwKDz9UGFtUFvLhrj3',
 };
 
-// Optional per-episode overrides, e.g.:
-// S01E01: { youtube: 'https://youtube.com/...', spotify: 'https://open.spotify.com/...' }
-const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {};
+const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
+  S01E01: {
+    youtube: 'https://www.youtube.com/watch?v=a_uwRIT-CIc&list=PLRZpIqDCRXC0&index=2',
+    spotify: 'https://open.spotify.com/episode/1UgJcmMFWfDE9L1nRTzhXz',
+  },
+  S01E02: {
+    youtube: 'https://www.youtube.com/watch?v=JvaN64XcHhg&list=PLRZpIqDCRXC0&index=3',
+    spotify: 'https://open.spotify.com/episode/2Qmc4LkFW3f7boFIpyHNnc?si=1teGYOq-Qg6CtMf0xZRolg',
+  },
+  S01E03: {
+    youtube: 'https://www.youtube.com/watch?v=VCGypitlMZg&list=PLRZpIqDCRXC0&index=4',
+    spotify: 'https://open.spotify.com/episode/2O1z8b7eK3g9biayDp5SEX?si=msJ9_YQcS8u_DAzlLETn1w',
+  },
+  S01E04: {
+    youtube: 'https://www.youtube.com/watch?v=InoItMh6zNI&list=PLRZpIqDCRXC0&index=5',
+    spotify: 'https://open.spotify.com/episode/5UrpJcAbb3uP4S4uPoF3x2?si=Cl9CGSBYRkGmM5WkBQI4ww',
+  },
+  S01E05: {
+    youtube: 'https://www.youtube.com/watch?v=WPW6JCpQw5w&list=PLRZpIqDCRXC0&index=6',
+    spotify: 'https://open.spotify.com/episode/6c4Pl1eMiPHuoxMiyRWdhc?si=Wd-vWEg8RUya_VbYwLD6Ng',
+  },
+  S01E06: {
+    youtube: 'https://www.youtube.com/watch?v=2BmLkr401VM&list=PLRZpIqDCRXC0&index=7',
+    spotify: 'https://open.spotify.com/episode/32k8EsJp0WIhwtWyXxLa7i?si=eD1h6XPzRx-SUX8stY7nVA',
+  },
+  S01E07: {
+    youtube: 'https://www.youtube.com/watch?v=7JKhG-1IsRA&list=PLRZpIqDCRXC0&index=8&t=6s',
+    spotify: 'https://open.spotify.com/episode/6bzlbx3TPmiS5GqxTSlR2l?si=3mS4dhSVTACxMgzLuKharw',
+  },
+  S01E08: {
+    youtube: 'https://www.youtube.com/watch?v=A57smIDT3rU&list=PLRZpIqDCRXC0&index=9&t=1s',
+    spotify: 'https://open.spotify.com/episode/02xCSBJHKX3ilTjULNHGSC?si=eAr62VeJSnOL0EipkE-WeQ',
+  },
+  S01E09: {
+    youtube: 'https://www.youtube.com/watch?v=xhvO0Qy_GSE&list=PLRZpIqDCRXC0&index=10',
+    spotify: 'https://open.spotify.com/episode/37QTHic1WVslERYyCicjFi?si=Sc5wr8ltQhm8NQPp-C86Ow',
+  },
+  S01E10: {
+    youtube: 'https://www.youtube.com/watch?v=qM8aJ8XJZpE&list=PLRZpIqDCRXC0&index=11&t=2s',
+    spotify: 'https://open.spotify.com/episode/4whN35uB9Up5BDXMNwYldR?si=KkhKIDqIS6q_hRt6XisWvQ',
+  },
+  S02E01: {
+    youtube: 'https://www.youtube.com/watch?v=njaUCBgfGmY&list=PLOuoRGjM2N5Q&index=1&t=7s',
+    spotify: 'https://open.spotify.com/episode/2SdhtyO3n8JLWzhq1kS9gi?si=DT8wMUhoRQmRz-ba7PsHrA',
+  },
+  S02E02: {
+    youtube: 'https://www.youtube.com/watch?v=hB35yjOeV0k&list=PLOuoRGjM2N5Q&index=2',
+    spotify: 'https://open.spotify.com/episode/6cakVAHwfhiC4gKCeBwRNz?si=itF0ATulSe2-JGA0AEoOJg',
+  },
+  S02E03: {
+    youtube: 'https://www.youtube.com/watch?v=tJEGP-Le0FQ&list=PLOuoRGjM2N5Q&index=3',
+    spotify: 'https://open.spotify.com/episode/7kjNjEs6ow5NmFGIXpqKrL?si=7mIausUGTF6FIG5grw07EQ',
+  },
+  S02E04: {
+    youtube: 'https://www.youtube.com/watch?v=qhYuvtEaoQs&list=PLOuoRGjM2N5Q&index=4',
+    spotify: 'https://open.spotify.com/episode/6f7nxcuJMvlfvWveSUMxr5?si=drkCwa07QO25YRS6EbbVrQ',
+  },
+  S02E05: {
+    youtube: 'https://www.youtube.com/watch?v=vpLStyiBTBk&list=PLOuoRGjM2N5Q&index=5',
+    spotify: 'https://open.spotify.com/episode/1nV5OzjvMKmyDePv3VlDsl?si=2Herlv32SPiZHqU7-H3Asw',
+  },
+  S02E06: {
+    youtube: 'https://www.youtube.com/watch?v=t7aeGwi9_xA&list=PLOuoRGjM2N5Q&index=6',
+    spotify: 'https://open.spotify.com/episode/3q6XEyiiOmlTEXMreaxhQb?si=HYYCK-hAS6eVf96uTDwNSw',
+  },
+  S02E07: {
+    youtube: 'https://www.youtube.com/watch?v=qscmnq86lBg&list=PLOuoRGjM2N5Q&index=7&t=16s',
+    spotify: 'https://open.spotify.com/episode/7qAd27QPif9E7mb0xBZKKA?si=Vnn3lyKjTJyXDYAi7VOzpQ',
+  },
+  S02E08: {
+    youtube: 'https://www.youtube.com/watch?v=bneJci1iaqM&list=PLOuoRGjM2N5Q&index=8',
+    spotify: 'https://open.spotify.com/episode/6HXI60F4c2c2mjTaf2luS1?si=hDu9vD5wQsuH2F1YK4wu-Q',
+  },
+  S02E09: {
+    youtube: 'https://www.youtube.com/watch?v=lqBMfu4O7o8&list=PLOuoRGjM2N5Q&index=9',
+    spotify: 'https://open.spotify.com/episode/3uHw6HKPpNZRGacgUcSkYd?si=N8o72lPAQ5-1twY0MyBniA',
+  },
+  S02E10: {
+    youtube: 'https://www.youtube.com/watch?v=u2kkPbReJE8&list=PLOuoRGjM2N5Q&index=10',
+    spotify: 'https://open.spotify.com/episode/6iR17XtgvZoknuwa2Edor9?si=gYKpkNb2TOa85glhMiouqg',
+  },
+};
 
 function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> {
   return {
