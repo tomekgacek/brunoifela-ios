@@ -176,4 +176,15 @@ export const season2Quizzes: EpisodeQuiz[] = [
   },
 ];
 
-export const allQuizzes: EpisodeQuiz[] = [...season1Quizzes, ...season2Quizzes];
+export const season3Quizzes: EpisodeQuiz[] = [
+  {
+    episodeCode: 'S03E01',
+    questions: [
+      { id: 'S03E01-Q1', question: 'Dokąd wracają Bruno i Fela po wakacjach?', options: ['Do Leśnej Szkoły', 'Do starego wiatraka', 'Nad wodospad'], correctIndex: 0 },
+      { id: 'S03E01-Q2', question: 'Co znajdują Bruno i Fela?', options: ['Niezwykły jesienny liść', 'Zaginioną książkę', 'Tajemniczą skrzynkę'], correctIndex: 0 },
+      { id: 'S03E01-Q3', question: 'Co znajduje się na znalezionym liściu?', options: ['Tajemniczy symbol', 'Mapa wakacji', 'Rysunek szkoły'], correctIndex: 0 },
+    ],
+  },
+];
+
+export const allQuizzes: EpisodeQuiz[] = [...season1Quizzes, ...season2Quizzes, ...season3Quizzes];

@@ -18,7 +18,15 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { seasonEpisodes, seasonMapData, season2Episodes, season2MapData, type Episode } from './src/data/season1';
+import {
+  seasonEpisodes,
+  seasonMapData,
+  season2Episodes,
+  season2MapData,
+  season3Episodes,
+  season3MapData,
+  type Episode,
+} from './src/data/season1';
 import { allQuizzes } from './src/data/quiz';
 import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './src/games/match3';
 import { PuzzleGame } from './src/games/PuzzleGame';
@@ -187,8 +195,12 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
     spotify: 'https://open.spotify.com/episode/3uHw6HKPpNZRGacgUcSkYd?si=N8o72lPAQ5-1twY0MyBniA',
   },
   S02E10: {
-    youtube: 'https://www.youtube.com/watch?v=u2kkPbReJE8&list=PLOuoRGjM2N5Q&index=10',
-    spotify: 'https://open.spotify.com/episode/6iR17XtgvZoknuwa2Edor9?si=gYKpkNb2TOa85glhMiouqg',
+    youtube: 'https://www.youtube.com/watch?v=RTZlQQJ1sM0',
+    spotify: 'https://open.spotify.com/episode/7CM2FrWGwDeeJpsjDyqHmD?si=WpuFVB0wTqSmAjcQDz4q3g',
+  },
+  S03E01: {
+    youtube: 'https://youtu.be/YRfzf9A1s9k',
+    spotify: 'https://open.spotify.com/episode/07pmqWFIrJAxfyPtgpc0Ba?si=tJqUKyblR0aAbdDPlPt0Yg',
   },
 };
 
@@ -199,7 +211,8 @@ function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> 
   };
 }
 
-function getEpisodeSeason(episodeCode: string): 1 | 2 {
+function getEpisodeSeason(episodeCode: string): 1 | 2 | 3 {
+  if (episodeCode.startsWith('S03')) return 3;
   return episodeCode.startsWith('S02') ? 2 : 1;
 }
 
@@ -220,16 +233,16 @@ function todayKey() {
 
 export default function App() {
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const allEpisodes = useMemo(() => [...seasonEpisodes, ...season2Episodes], []);
+  const allEpisodes = useMemo(() => [...seasonEpisodes, ...season2Episodes, ...season3Episodes], []);
 
   const [screen, setScreen] = useState<Screen>('splash');
   const [activeGameTab, setActiveGameTab] = useState<GameTab>('zrecznosciowa');
   const [fullscreenGame, setFullscreenGame] = useState<GameTab | null>(null);
-  const [mapSeason, setMapSeason] = useState<1 | 2>(1);
+  const [mapSeason, setMapSeason] = useState<1 | 2 | 3>(1);
   const [showMapFullscreen, setShowMapFullscreen] = useState(false);
   const [mapCleanView, setMapCleanView] = useState(true);
-  const [quizSeason, setQuizSeason] = useState<1 | 2>(1);
-  const [odcinkiSeason, setOdcinkiSeason] = useState<'all' | 1 | 2>('all');
+  const [quizSeason, setQuizSeason] = useState<1 | 2 | 3>(1);
+  const [odcinkiSeason, setOdcinkiSeason] = useState<'all' | 1 | 2 | 3>('all');
   const [odcinkiDropdownOpen, setOdcinkiDropdownOpen] = useState(false);
 
   // Compute menu image rendered dimensions when in contain mode
@@ -334,7 +347,7 @@ export default function App() {
   };
 
   const selectedLocation = useMemo(() => {
-    const data = mapSeason === 1 ? seasonMapData : season2MapData;
+    const data = mapSeason === 1 ? seasonMapData : mapSeason === 2 ? season2MapData : season3MapData;
     return data.find((location) => location.id === selectedLocationId) ?? data[0];
   }, [selectedLocationId, mapSeason]);
 
@@ -387,11 +400,12 @@ export default function App() {
     // S01 and S02 use the same unlocking rule: first episode open, next after 2/3 in previous.
     applySequentialUnlock(seasonEpisodes);
     applySequentialUnlock(season2Episodes);
+    applySequentialUnlock(season3Episodes);
 
     return unlocked;
   }, [quizScores]);
 
-  const quizSeasonEpisodes = quizSeason === 1 ? seasonEpisodes : season2Episodes;
+  const quizSeasonEpisodes = quizSeason === 1 ? seasonEpisodes : quizSeason === 2 ? season2Episodes : season3Episodes;
 
   const firstUnlockedEpisodeInQuizSeason = useMemo(() => {
     const firstUnlocked = quizSeasonEpisodes.find((episode) => unlockedEpisodeMap[episode.code]);
@@ -563,7 +577,8 @@ export default function App() {
     // Lock redirect only matters for quiz
     if (screen !== 'quiz') return;
     if (!unlockedEpisodeMap[selectedEpisodeCode]) {
-      const selectedSeasonEpisodes = getEpisodeSeason(selectedEpisodeCode) === 2 ? season2Episodes : seasonEpisodes;
+      const selectedSeason = getEpisodeSeason(selectedEpisodeCode);
+      const selectedSeasonEpisodes = selectedSeason === 1 ? seasonEpisodes : selectedSeason === 2 ? season2Episodes : season3Episodes;
       const firstUnlocked = selectedSeasonEpisodes.find((episode) => unlockedEpisodeMap[episode.code]);
       const fallbackCode = firstUnlocked?.code ?? selectedSeasonEpisodes[0].code;
       setSelectedEpisodeCode(fallbackCode);
@@ -1022,6 +1037,14 @@ export default function App() {
                   ☀️ Sezon 2
                 </Text>
               </Pressable>
+              <Pressable
+                style={[styles.mapSeasonBtn, quizSeason === 3 && styles.mapSeasonBtnActive]}
+                onPress={() => setQuizSeason(3)}
+              >
+                <Text style={[styles.mapSeasonBtnText, quizSeason === 3 && styles.mapSeasonBtnTextActive]}>
+                  🍂 Sezon 3
+                </Text>
+              </Pressable>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodePicker}>
               {quizSeasonEpisodes.map((episode) => (
@@ -1078,6 +1101,17 @@ export default function App() {
                   ☀️ Sezon 2
                 </Text>
               </Pressable>
+              <Pressable
+                style={[styles.mapSeasonBtn, mapSeason === 3 && styles.mapSeasonBtnActive]}
+                onPress={() => {
+                  setMapSeason(3);
+                  setSelectedLocationId(season3MapData[0].id);
+                }}
+              >
+                <Text style={[styles.mapSeasonBtnText, mapSeason === 3 && styles.mapSeasonBtnTextActive]}>
+                  🍂 Sezon 3
+                </Text>
+              </Pressable>
             </View>
 
             {/* Map view controls: toggle markers on/off, and view fullscreen for closer analysis */}
@@ -1100,7 +1134,7 @@ export default function App() {
               style={[styles.map, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
               imageStyle={styles.mapImageStyle}
             >
-              {!mapCleanView && (mapSeason === 1 ? seasonMapData : season2MapData).map((location) => {
+              {!mapCleanView && (mapSeason === 1 ? seasonMapData : mapSeason === 2 ? season2MapData : season3MapData).map((location) => {
                 const isSelected = selectedLocationId === location.id;
                 return (
                   <Pressable
@@ -1151,13 +1185,13 @@ export default function App() {
                 onPress={() => setOdcinkiDropdownOpen((o) => !o)}
               >
                 <Text style={styles.dropdownTriggerText}>
-                  {odcinkiSeason === 'all' ? 'Oba sezony' : `Sezon ${odcinkiSeason}`}
+                  {odcinkiSeason === 'all' ? 'Wszystkie sezony' : `Sezon ${odcinkiSeason}`}
                 </Text>
                 <Text style={styles.dropdownArrow}>{odcinkiDropdownOpen ? '▲' : '▼'}</Text>
               </Pressable>
               {odcinkiDropdownOpen && (
                 <View style={styles.dropdownMenu}>
-                  {([{ label: 'Oba sezony', value: 'all' }, { label: 'Sezon 1', value: 1 }, { label: 'Sezon 2', value: 2 }] as { label: string; value: 'all' | 1 | 2 }[]).map((opt) => (
+                  {([{ label: 'Wszystkie sezony', value: 'all' }, { label: 'Sezon 1', value: 1 }, { label: 'Sezon 2', value: 2 }, { label: 'Sezon 3', value: 3 }] as { label: string; value: 'all' | 1 | 2 | 3 }[]).map((opt) => (
                     <Pressable
                       key={String(opt.value)}
                       style={[styles.dropdownItem, odcinkiSeason === opt.value && styles.dropdownItemActive]}
@@ -1246,6 +1280,43 @@ export default function App() {
                         <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
                       </Pressable>
                     </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+                ))}
+              </>
+            )}
+
+            {(odcinkiSeason === 'all' || odcinkiSeason === 3) && (
+              <>
+                <View style={[styles.seasonHeader, odcinkiSeason === 'all' ? { marginTop: 6 } : {}]}>
+                  <Text style={styles.seasonHeaderText}>🍂 Sezon 3 — Jesienne Odkrycia</Text>
+                </View>
+                {season3Episodes.map((episode) => (
+                  <View key={episode.code} style={styles.missionCard}>
+                    {(() => {
+                      const mediaLinks = getEpisodeMediaLinks(episode.code);
+                      return (
+                        <>
+                          <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
+                          <Text style={styles.missionText}>{episode.description}</Text>
+                          <View style={styles.episodeMediaRow}>
+                            <Pressable
+                              style={styles.episodeMediaBtn}
+                              onPress={() => { void openEpisodeLink(mediaLinks.youtube); }}
+                            >
+                              <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                              <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
+                            </Pressable>
+                            <Pressable
+                              style={styles.episodeMediaBtn}
+                              onPress={() => { void openEpisodeLink(mediaLinks.spotify); }}
+                            >
+                              <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                              <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
+                            </Pressable>
+                          </View>
                         </>
                       );
                     })()}
@@ -1677,7 +1748,7 @@ export default function App() {
             style={[styles.mapFullscreenImage, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
             imageStyle={{ resizeMode: 'contain' }}
           >
-            {!mapCleanView && (mapSeason === 1 ? seasonMapData : season2MapData).map((location) => (
+            {!mapCleanView && (mapSeason === 1 ? seasonMapData : mapSeason === 2 ? season2MapData : season3MapData).map((location) => (
               <View
                 key={location.id}
                 style={[styles.pin, { left: `${location.x}%`, top: `${location.y}%`, backgroundColor: '#ffffff' }]}

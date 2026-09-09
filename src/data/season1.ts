@@ -144,6 +144,26 @@ export const season2Episodes: Episode[] = [
   },
 ];
 
+export const season3Episodes: Episode[] = [
+  {
+    code: 'S03E01',
+    title: 'Pierwszy Jesienny Liść',
+    description:
+      'Bruno i Fela wracają po wakacjach do Leśnej Szkoły. Pewnego dnia znajdują niezwykły jesienny liść z tajemniczym symbolem. Czy to początek kolejnej przygody Klubu Odkrywców?',
+  },
+];
+
+export const season3MapData: SeasonLocation[] = [
+  {
+    id: 's03e01',
+    name: '1. Pierwszy Jesienny Liść',
+    icon: '🍂',
+    x: 50,
+    y: 45,
+    events: [{ episode: 'S03E01', action: 'Powrót do Leśnej Szkoły i odkrycie liścia z tajemniczym symbolem.' }],
+  },
+];
+
 export const season2MapData: SeasonLocation[] = [
   {
     id: 's02e01',
