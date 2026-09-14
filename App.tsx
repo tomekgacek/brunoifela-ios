@@ -35,6 +35,7 @@ import { SwimmingGame } from './src/games/SwimmingGame';
 
 const mapImage = require('./assets/game/mapa.jpeg');
 const mapaS02Image = require('./assets/game/mapa_s02.png');
+const mapaS03Image = require('./assets/game/mapa_s03.png');
 const brunoImage = require('./assets/game/bruno.jpeg');
 const felaImage = require('./assets/game/fela.jpeg');
 const splashImg = require('./assets/game/landing-page/Bruno_Fela_1.png');
@@ -201,6 +202,10 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
   S03E01: {
     youtube: 'https://youtu.be/YRfzf9A1s9k',
     spotify: 'https://open.spotify.com/episode/07pmqWFIrJAxfyPtgpc0Ba?si=tJqUKyblR0aAbdDPlPt0Yg',
+  },
+  S03E02: {
+    youtube: 'https://youtu.be/EklWSdWhU-I',
+    spotify: 'https://open.spotify.com/episode/2Zj0CKjGiyI5FHdsZFYqkZ?si=S3up1bBZTJ-nxlvLagMX9w',
   },
 };
 
@@ -1130,7 +1135,7 @@ export default function App() {
             </View>
 
             <ImageBackground
-              source={mapSeason === 1 ? mapImage : mapaS02Image}
+              source={mapSeason === 1 ? mapImage : mapSeason === 2 ? mapaS02Image : mapaS03Image}
               style={[styles.map, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
               imageStyle={styles.mapImageStyle}
             >
@@ -1744,7 +1749,7 @@ export default function App() {
           minimumZoomScale={1}
         >
           <ImageBackground
-            source={mapSeason === 1 ? mapImage : mapaS02Image}
+            source={mapSeason === 1 ? mapImage : mapSeason === 2 ? mapaS02Image : mapaS03Image}
             style={[styles.mapFullscreenImage, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
             imageStyle={{ resizeMode: 'contain' }}
           >

@@ -151,6 +151,60 @@ export const season3Episodes: Episode[] = [
     description:
       'Bruno i Fela wracają po wakacjach do Leśnej Szkoły. Pewnego dnia znajdują niezwykły jesienny liść z tajemniczym symbolem. Czy to początek kolejnej przygody Klubu Odkrywców?',
   },
+  {
+    code: 'S03E02',
+    title: 'Tajemnicze Ślady w Błocie',
+    description:
+      'Po nocnym deszczu Bruno i Fela odkrywają tajemnicze ślady prowadzące w głąb lasu. Czas rozpocząć jesienne śledztwo!',
+  },
+  {
+    code: 'S03E03',
+    title: 'Jesienny Wyścig Liści',
+    description:
+      'Bruno, Fela i przyjaciele organizują wyścig kolorowych liści. Szybko okazuje się, że po drodze czeka ich ważniejsze odkrycie niż zwycięstwo.',
+  },
+  {
+    code: 'S03E04',
+    title: 'Domek, Który Zniknął',
+    description:
+      'Domek Julka nagle znika. Bruno i Fela ruszają na poszukiwania i odkrywają, że zmiana nie zawsze oznacza koniec.',
+  },
+  {
+    code: 'S03E05',
+    title: 'Noc Świetlików',
+    description:
+      'Jesienny wieczór prowadzi Bruna i Felę za tajemniczymi światełkami do Jaskini Echo, gdzie czeka kolejna zagadka.',
+  },
+  {
+    code: 'S03E06',
+    title: 'Wielki Jesienny Piknik',
+    description:
+      'Klub Odkrywców organizuje jesienny piknik, ale nagły deszcz wystawia ich wspólne plany na próbę.',
+  },
+  {
+    code: 'S03E07',
+    title: 'List, Który Przyniósł Wiatr',
+    description:
+      'Silny wiatr przynosi Brunowi i Feli tajemniczy list, który prowadzi ich do historii dawnych Odkrywców.',
+  },
+  {
+    code: 'S03E08',
+    title: 'Sekret Wielkiego Dębu',
+    description:
+      'Pod korzeniami Wielkiego Dębu Bruno i Fela znajdują starą skrzynkę z listami dla kolejnych Odkrywców.',
+  },
+  {
+    code: 'S03E09',
+    title: 'Wielka Jesienna Tajemnica',
+    description:
+      'Bruno i Fela łączą wszystkie wskazówki z jesiennych przygód, aby odkryć cel wielkiej tajemnicy.',
+  },
+  {
+    code: 'S03E10',
+    title: 'Pierwsza Strona Jesieni',
+    description:
+      'Przyjaciele zapisują pierwszą wspólną historię w Księdze Odkrywców, gdy pierwszy śnieg przynosi nową tajemnicę.',
+  },
 ];
 
 export const season3MapData: SeasonLocation[] = [
@@ -158,9 +212,81 @@ export const season3MapData: SeasonLocation[] = [
     id: 's03e01',
     name: '1. Pierwszy Jesienny Liść',
     icon: '🍂',
-    x: 50,
-    y: 45,
+    x: 12,
+    y: 21,
     events: [{ episode: 'S03E01', action: 'Powrót do Leśnej Szkoły i odkrycie liścia z tajemniczym symbolem.' }],
+  },
+  {
+    id: 's03e02',
+    name: '2. Tajemnicze Ślady w Błocie',
+    icon: '👣',
+    x: 32,
+    y: 31,
+    events: [{ episode: 'S03E02', action: 'Jesienne śledztwo po nocnym deszczu.' }],
+  },
+  {
+    id: 's03e03',
+    name: '3. Jesienny Wyścig Liści',
+    icon: '🍁',
+    x: 54,
+    y: 24,
+    events: [{ episode: 'S03E03', action: 'Wyścig kolorowych liści i znaleziona po drodze wskazówka.' }],
+  },
+  {
+    id: 's03e04',
+    name: '4. Domek, Który Zniknął',
+    icon: '🏠',
+    x: 77,
+    y: 35,
+    events: [{ episode: 'S03E04', action: 'Poszukiwania domku Julka.' }],
+  },
+  {
+    id: 's03e05',
+    name: '5. Noc Świetlików',
+    icon: '✨',
+    x: 89,
+    y: 58,
+    events: [{ episode: 'S03E05', action: 'Światełka prowadzące do Jaskini Echo.' }],
+  },
+  {
+    id: 's03e06',
+    name: '6. Wielki Jesienny Piknik',
+    icon: '🧺',
+    x: 61,
+    y: 61,
+    events: [{ episode: 'S03E06', action: 'Piknik Klubu Odkrywców i niespodziewany deszcz.' }],
+  },
+  {
+    id: 's03e07',
+    name: '7. List, Który Przyniósł Wiatr',
+    icon: '✉️',
+    x: 35,
+    y: 60,
+    events: [{ episode: 'S03E07', action: 'List dawnych Odkrywców przyniesiony przez wiatr.' }],
+  },
+  {
+    id: 's03e08',
+    name: '8. Sekret Wielkiego Dębu',
+    icon: '🗝️',
+    x: 15,
+    y: 72,
+    events: [{ episode: 'S03E08', action: 'Skrzynka ukryta pod korzeniami Wielkiego Dębu.' }],
+  },
+  {
+    id: 's03e09',
+    name: '9. Wielka Jesienna Tajemnica',
+    icon: '🧩',
+    x: 46,
+    y: 86,
+    events: [{ episode: 'S03E09', action: 'Połączenie wszystkich jesiennych wskazówek.' }],
+  },
+  {
+    id: 's03e10',
+    name: '10. Pierwsza Strona Jesieni',
+    icon: '❄️',
+    x: 76,
+    y: 88,
+    events: [{ episode: 'S03E10', action: 'Zapisanie historii w Księdze Odkrywców i pierwszy śnieg.' }],
   },
 ];
 
