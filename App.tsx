@@ -118,6 +118,8 @@ const SEASON_MEDIA_PLACEHOLDER_LINKS: Required<EpisodeMediaLinks> = {
   spotify: 'https://open.spotify.com/show/1WQ1pwKDz9UGFtUFvLhrj3',
 };
 
+const SEASON3_YOUTUBE_PLAYLIST = 'https://www.youtube.com/playlist?list=PLVoVzVJeaj-M';
+
 const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
   S01E01: {
     youtube: 'https://www.youtube.com/watch?v=a_uwRIT-CIc&list=PLRZpIqDCRXC0&index=2',
@@ -212,6 +214,7 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
 function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> {
   return {
     ...SEASON_MEDIA_PLACEHOLDER_LINKS,
+    ...(episodeCode.startsWith('S03') ? { youtube: SEASON3_YOUTUBE_PLAYLIST } : {}),
     ...EPISODE_MEDIA_LINKS[episodeCode],
   };
 }
@@ -1296,7 +1299,7 @@ export default function App() {
             {(odcinkiSeason === 'all' || odcinkiSeason === 3) && (
               <>
                 <View style={[styles.seasonHeader, odcinkiSeason === 'all' ? { marginTop: 6 } : {}]}>
-                  <Text style={styles.seasonHeaderText}>🍂 Sezon 3 — Jesienne Odkrycia</Text>
+                  <Text style={styles.seasonHeaderText}>🍂 Sezon 3 — Jesienne Tajemnice</Text>
                 </View>
                 {season3Episodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>

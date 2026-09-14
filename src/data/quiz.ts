@@ -185,6 +185,78 @@ export const season3Quizzes: EpisodeQuiz[] = [
       { id: 'S03E01-Q3', question: 'Co znajduje się na znalezionym liściu?', options: ['Tajemniczy symbol', 'Mapa wakacji', 'Rysunek szkoły'], correctIndex: 0 },
     ],
   },
+  {
+    episodeCode: 'S03E02',
+    questions: [
+      { id: 'S03E02-Q1', question: 'Kogo ślady znaleźli Bruno i Fela w błocie?', options: ['Borsuka', 'Sójki', 'Julka'], correctIndex: 0 },
+      { id: 'S03E02-Q2', question: 'Co było narysowane na znalezionym kawałku papieru?', options: ['Liść i jedna kreska', 'Mapa z drogą', 'Wielki Dąb'], correctIndex: 0 },
+      { id: 'S03E02-Q3', question: 'Jaki symbol był wyryty na kamieniu?', options: ['Księżyc', 'Słońce', 'Gwiazda'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E03',
+    questions: [
+      { id: 'S03E03-Q1', question: 'Gdzie odbywał się Jesienny Wyścig Liści?', options: ['Przy strumyku', 'Pod Wielkim Dębem', 'W Jaskini Echo'], correctIndex: 0 },
+      { id: 'S03E03-Q2', question: 'Jaki kolor miał liść wybrany przez Felę?', options: ['Pomarańczowy', 'Czerwony', 'Zielony'], correctIndex: 0 },
+      { id: 'S03E03-Q3', question: 'Co znaleźli pod liściem Feli?', options: ['Mały drewniany listek', 'Kamień z księżycem', 'Piórko sójki'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E04',
+    questions: [
+      { id: 'S03E04-Q1', question: 'Czyj domek zniknął przy strumyku?', options: ['Julka', 'Leona', 'Miko'], correctIndex: 0 },
+      { id: 'S03E04-Q2', question: 'Dlaczego przyjaciele przenieśli domek?', options: ['W starym miejscu zbierała się woda', 'Chcieli go ukryć', 'Domek był za mały'], correctIndex: 0 },
+      { id: 'S03E04-Q3', question: 'Co nowego miał domek Julka?', options: ['Okienko i lepszy dach', 'Wieżę i balkon', 'Most nad strumykiem'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E05',
+    questions: [
+      { id: 'S03E05-Q1', question: 'Dokąd zaprowadziły Bruna i Felę światełka?', options: ['Do Jaskini Echo', 'Do Leśnej Szkoły', 'Do starego wiatraka'], correctIndex: 0 },
+      { id: 'S03E05-Q2', question: 'Co rozświetliło ścianę jaskini?', options: ['Setki świetlików', 'Latarnie Bruna', 'Blask księżyca'], correctIndex: 0 },
+      { id: 'S03E05-Q3', question: 'Co było napisane na kamieniu w jaskini?', options: ['Nie wszystko, co świeci, pokazuje drogę', 'Idź zawsze za światłem', 'Najpierw znajdź skarb'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E06',
+    questions: [
+      { id: 'S03E06-Q1', question: 'Co zaczęło padać podczas jesiennego pikniku?', options: ['Deszcz', 'Śnieg', 'Liście'], correctIndex: 0 },
+      { id: 'S03E06-Q2', question: 'Gdzie przyjaciele przenieśli piknik?', options: ['Pod Wielki Dąb', 'Do Jaskini Echo', 'Do domku Julka'], correctIndex: 0 },
+      { id: 'S03E06-Q3', question: 'Jakie zdanie znaleziono na liściu?', options: ['Kiedy wiatr zmienia kierunek, zmień się razem z nim', 'Każdy piknik musi być w słońcu', 'Nie ufaj jesiennym liściom'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E07',
+    questions: [
+      { id: 'S03E07-Q1', question: 'Co znalazła Fela pod liściem przyniesionym przez wiatr?', options: ['Mały kawałek papieru', 'Złoty kluczyk', 'Kamień z symbolem'], correctIndex: 0 },
+      { id: 'S03E07-Q2', question: 'Co pojawiło się na pustej stronie po położeniu pierwszego liścia?', options: ['Historia dawnych Odkrywców', 'Mapa skarbu', 'Rysunek wiatraka'], correctIndex: 0 },
+      { id: 'S03E07-Q3', question: 'Co mieli zrobić kolejni Odkrywcy według księgi?', options: ['Dopisać swoją historię', 'Znaleźć złoty skarb', 'Zbudować nową szkołę'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E08',
+    questions: [
+      { id: 'S03E08-Q1', question: 'Gdzie Bruno i Fela znaleźli skrzynkę?', options: ['Między korzeniami Wielkiego Dębu', 'Przy starym wiatraku', 'Pod mostkiem'], correctIndex: 0 },
+      { id: 'S03E08-Q2', question: 'O czym mówiły listy dawnych Odkrywców?', options: ['O odwadze, przyjaźni i pomaganiu', 'O ukrytym złocie', 'O wyścigach w lesie'], correctIndex: 0 },
+      { id: 'S03E08-Q3', question: 'Co było napisane na pustej kopercie?', options: ['Dla kolejnych odkrywców', 'Nie otwierać', 'Tylko dla Bruna'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E09',
+    questions: [
+      { id: 'S03E09-Q1', question: 'Ile symboli Bruno zauważył na okładce księgi?', options: ['Cztery', 'Dwa', 'Siedem'], correctIndex: 0 },
+      { id: 'S03E09-Q2', question: 'Co przedstawiał rysunek, który pojawił się w księdze?', options: ['Polanę, Wielki Dąb i Klub Odkrywców', 'Jaskinię Echo i wiatrak', 'Leśną Szkołę i strumyk'], correctIndex: 0 },
+      { id: 'S03E09-Q3', question: 'Jaki nowy symbol pojawił się na końcu?', options: ['Mała śnieżynka', 'Czerwony liść', 'Srebrny klucz'], correctIndex: 0 },
+    ],
+  },
+  {
+    episodeCode: 'S03E10',
+    questions: [
+      { id: 'S03E10-Q1', question: 'Od czego zaczęła się jesienna historia Bruna i Feli?', options: ['Od jednego liścia', 'Od pikniku', 'Od pierwszego śniegu'], correctIndex: 0 },
+      { id: 'S03E10-Q2', question: 'Co Bruno uznał za najważniejsze odkrycie jesieni?', options: ['Przyjaźń i wspólną historię', 'Skrzynkę pod Dębem', 'Największy liść w lesie'], correctIndex: 0 },
+      { id: 'S03E10-Q3', question: 'Co spadło z nieba, gdy skończyli pisać w księdze?', options: ['Pierwszy płatek śniegu', 'Jesienny liść', 'Kropla deszczu'], correctIndex: 0 },
+    ],
+  },
 ];
 
 export const allQuizzes: EpisodeQuiz[] = [...season1Quizzes, ...season2Quizzes, ...season3Quizzes];
