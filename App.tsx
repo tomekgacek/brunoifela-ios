@@ -106,6 +106,7 @@ const STORAGE_KEYS = {
   quizScores: 'brunoifela.quizScores.v1',
   selectedEpisode: 'brunoifela.selectedEpisode.v1',
   dailyProgress: 'brunoifela.dailyProgress.v1',
+  parentalGateApproved: 'brunoifela.parentalGateApproved.v1',
 };
 
 type EpisodeMediaLinks = {
@@ -272,6 +273,9 @@ export default function App() {
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(seasonMapData[0].id);
   const [selectedEpisodeCode, setSelectedEpisodeCode] = useState<string>('S01E01');
+  const [parentalGateApproved, setParentalGateApproved] = useState(false);
+  const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null);
+  const [showParentalGate, setShowParentalGate] = useState(false);
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
@@ -338,6 +342,19 @@ export default function App() {
       Animated.timing(innerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
   }, [screen]);
+
+  useEffect(() => {
+    const hydrateParentalGate = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEYS.parentalGateApproved);
+        setParentalGateApproved(stored === 'true');
+      } catch {
+        setParentalGateApproved(false);
+      }
+    };
+
+    void hydrateParentalGate();
+  }, []);
 
   const handleSplashTap = () => {
     Animated.timing(splashOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(() =>
@@ -751,6 +768,33 @@ export default function App() {
       });
     } catch {
       Alert.alert('Nie udało się otworzyć linku', 'Sprawdź, czy link do odcinka jest poprawny.');
+    }
+  };
+
+  const requestExternalAccess = (url: string) => {
+    if (!parentalGateApproved) {
+      setPendingExternalUrl(url);
+      setShowParentalGate(true);
+      return;
+    }
+
+    void openEpisodeLink(url);
+  };
+
+  const approveParentalGate = async () => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.parentalGateApproved, 'true');
+    } catch {
+      // Keep the local in-memory approval even if storage fails so the gate still works in-session.
+    }
+
+    setParentalGateApproved(true);
+    setShowParentalGate(false);
+
+    if (pendingExternalUrl) {
+      const nextUrl = pendingExternalUrl;
+      setPendingExternalUrl(null);
+      void openEpisodeLink(nextUrl);
     }
   };
 
@@ -1235,7 +1279,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          void openEpisodeLink(mediaLinks.youtube);
+                          requestExternalAccess(mediaLinks.youtube);
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1244,7 +1288,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          void openEpisodeLink(mediaLinks.spotify);
+                          requestExternalAccess(mediaLinks.spotify);
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1276,7 +1320,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          void openEpisodeLink(mediaLinks.youtube);
+                          requestExternalAccess(mediaLinks.youtube);
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1285,7 +1329,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          void openEpisodeLink(mediaLinks.spotify);
+                          requestExternalAccess(mediaLinks.spotify);
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1316,14 +1360,14 @@ export default function App() {
                           <View style={styles.episodeMediaRow}>
                             <Pressable
                               style={styles.episodeMediaBtn}
-                              onPress={() => { void openEpisodeLink(mediaLinks.youtube); }}
+                              onPress={() => { requestExternalAccess(mediaLinks.youtube); }}
                             >
                               <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
                               <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
                             </Pressable>
                             <Pressable
                               style={styles.episodeMediaBtn}
-                              onPress={() => { void openEpisodeLink(mediaLinks.spotify); }}
+                              onPress={() => { requestExternalAccess(mediaLinks.spotify); }}
                             >
                               <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
                               <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
@@ -1771,6 +1815,43 @@ export default function App() {
           </ImageBackground>
         </ScrollView>
       </SafeAreaView>
+    </Modal>
+
+    <Modal
+      visible={showParentalGate}
+      animationType="fade"
+      transparent
+      statusBarTranslucent
+      onRequestClose={() => {
+        setShowParentalGate(false);
+        setPendingExternalUrl(null);
+      }}
+    >
+      <View style={styles.parentalGateOverlay}>
+        <View style={styles.parentalGateCard}>
+          <Text style={styles.parentalGateTitle}>Zanim opuścisz aplikację</Text>
+          <Text style={styles.parentalGateText}>
+            To połączenie otworzy zewnętrzną stronę internetową. Wymagana jest zgoda rodzica lub opiekuna.
+          </Text>
+          <View style={styles.parentalGateActions}>
+            <Pressable
+              style={[styles.parentalGateButton, styles.parentalGateButtonSecondary]}
+              onPress={() => {
+                setShowParentalGate(false);
+                setPendingExternalUrl(null);
+              }}
+            >
+              <Text style={styles.parentalGateButtonSecondaryText}>Anuluj</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.parentalGateButton, styles.parentalGateButtonPrimary]}
+              onPress={approveParentalGate}
+            >
+              <Text style={styles.parentalGateButtonPrimaryText}>Tak, otwórz</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
     </Modal>
 
     {/* Swimming character selection modal */}
@@ -2840,6 +2921,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#3f2d17',
+  },
+  parentalGateOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(18, 13, 9, 0.62)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  parentalGateCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff8e8',
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#efd8a2',
+    padding: 24,
+    gap: 18,
+  },
+  parentalGateTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#3f2d17',
+    textAlign: 'center',
+  },
+  parentalGateText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#402b15',
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  parentalGateActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  parentalGateButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parentalGateButtonPrimary: {
+    backgroundColor: '#cb3f45',
+  },
+  parentalGateButtonSecondary: {
+    backgroundColor: '#fff0e8',
+    borderWidth: 1,
+    borderColor: '#ecd4a2',
+  },
+  parentalGateButtonPrimaryText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  parentalGateButtonSecondaryText: {
+    color: '#402b15',
+    fontWeight: '800',
+    fontSize: 16,
   },
   characterSelectOverlay: {
     flex: 1,
