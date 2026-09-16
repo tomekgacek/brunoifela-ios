@@ -275,7 +275,6 @@ export default function App() {
   const [selectedEpisodeCode, setSelectedEpisodeCode] = useState<string>('S01E01');
   const [parentalGateApproved, setParentalGateApproved] = useState(false);
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null);
-  const [approvedExternalUrl, setApprovedExternalUrl] = useState<string | null>(null);
   const [showParentalGate, setShowParentalGate] = useState(false);
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
@@ -356,16 +355,6 @@ export default function App() {
 
     void hydrateParentalGate();
   }, []);
-
-  useEffect(() => {
-    if (!approvedExternalUrl) {
-      return;
-    }
-
-    const urlToOpen = approvedExternalUrl;
-    setApprovedExternalUrl(null);
-    void openEpisodeLink(urlToOpen);
-  }, [approvedExternalUrl]);
 
   const handleSplashTap = () => {
     Animated.timing(splashOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(() =>
@@ -806,7 +795,9 @@ export default function App() {
     setShowParentalGate(false);
 
     if (urlToOpen) {
-      setApprovedExternalUrl(urlToOpen);
+      setTimeout(() => {
+        void openEpisodeLink(urlToOpen);
+      }, 250);
     }
   };
 
