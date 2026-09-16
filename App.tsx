@@ -782,6 +782,8 @@ export default function App() {
   };
 
   const approveParentalGate = async () => {
+    const urlToOpen = pendingExternalUrl;
+
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.parentalGateApproved, 'true');
     } catch {
@@ -790,11 +792,12 @@ export default function App() {
 
     setParentalGateApproved(true);
     setShowParentalGate(false);
+    setPendingExternalUrl(null);
 
-    if (pendingExternalUrl) {
-      const nextUrl = pendingExternalUrl;
-      setPendingExternalUrl(null);
-      void openEpisodeLink(nextUrl);
+    if (urlToOpen) {
+      setTimeout(() => {
+        void openEpisodeLink(urlToOpen);
+      }, 250);
     }
   };
 
