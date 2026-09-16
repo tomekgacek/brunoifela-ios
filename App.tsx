@@ -209,6 +209,10 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
     youtube: 'https://youtu.be/EklWSdWhU-I',
     spotify: 'https://open.spotify.com/episode/2Zj0CKjGiyI5FHdsZFYqkZ?si=S3up1bBZTJ-nxlvLagMX9w',
   },
+  S03E03: {
+    youtube: 'https://youtu.be/yP3BRrV9ktU',
+    spotify: 'https://open.spotify.com/episode/1iW8r8xbpDJJrdARk8MHpb?si=IfL9lQOpT6aqD4vK07tgRg',
+  },
 };
 
 function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> {
