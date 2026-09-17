@@ -15,6 +15,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -106,7 +107,6 @@ const STORAGE_KEYS = {
   quizScores: 'brunoifela.quizScores.v1',
   selectedEpisode: 'brunoifela.selectedEpisode.v1',
   dailyProgress: 'brunoifela.dailyProgress.v1',
-  parentalGateApproved: 'brunoifela.parentalGateApproved.v1',
 };
 
 type EpisodeMediaLinks = {
@@ -229,6 +229,16 @@ function getEpisodeSeason(episodeCode: string): 1 | 2 | 3 {
   return episodeCode.startsWith('S02') ? 2 : 1;
 }
 
+function generateParentalGateQuestion() {
+  const a = Math.floor(Math.random() * 40) + 10;
+  const b = Math.floor(Math.random() * 25) + 5;
+  return {
+    a,
+    b,
+    answer: a + b,
+  };
+}
+
 const gemColors = ['#e25a5a', '#4ca76d', '#4d7ad3', '#e6b94c', '#9a66d9', '#3fa9c9', '#e08a3c'];
 
 function shuffleArray<T>(items: T[]) {
@@ -273,9 +283,12 @@ export default function App() {
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(seasonMapData[0].id);
   const [selectedEpisodeCode, setSelectedEpisodeCode] = useState<string>('S01E01');
-  const [parentalGateApproved, setParentalGateApproved] = useState(false);
   const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null);
+  const [pendingDestination, setPendingDestination] = useState('zewnętrznej strony');
   const [showParentalGate, setShowParentalGate] = useState(false);
+  const [parentalGateAnswer, setParentalGateAnswer] = useState('');
+  const [parentalGateError, setParentalGateError] = useState('');
+  const [parentalGateQuestion, setParentalGateQuestion] = useState(() => generateParentalGateQuestion());
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
@@ -342,19 +355,6 @@ export default function App() {
       Animated.timing(innerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
   }, [screen]);
-
-  useEffect(() => {
-    const hydrateParentalGate = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEYS.parentalGateApproved);
-        setParentalGateApproved(stored === 'true');
-      } catch {
-        setParentalGateApproved(false);
-      }
-    };
-
-    void hydrateParentalGate();
-  }, []);
 
   const handleSplashTap = () => {
     Animated.timing(splashOpacity, { toValue: 0, duration: 350, useNativeDriver: true }).start(() =>
@@ -771,27 +771,28 @@ export default function App() {
     }
   };
 
-  const requestExternalAccess = (url: string) => {
-    if (!parentalGateApproved) {
-      setPendingExternalUrl(url);
-      setShowParentalGate(true);
+  const requestExternalAccess = (url: string, destination: string) => {
+    setPendingExternalUrl(url);
+    setPendingDestination(destination);
+    setParentalGateQuestion(generateParentalGateQuestion());
+    setParentalGateAnswer('');
+    setParentalGateError('');
+    setShowParentalGate(true);
+  };
+
+  const approveParentalGate = () => {
+    const urlToOpen = pendingExternalUrl;
+    const userAnswer = Number(parentalGateAnswer);
+
+    if (userAnswer !== parentalGateQuestion.answer) {
+      setParentalGateError('Spróbuj ponownie. Odpowiedź jest nieprawidłowa.');
+      setParentalGateAnswer('');
       return;
     }
 
-    void openEpisodeLink(url);
-  };
-
-  const approveParentalGate = async () => {
-    const urlToOpen = pendingExternalUrl;
-
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.parentalGateApproved, 'true');
-    } catch {
-      // Keep the local in-memory approval even if storage fails so the gate still works in-session.
-    }
-
     setPendingExternalUrl(null);
-    setParentalGateApproved(true);
+    setParentalGateAnswer('');
+    setParentalGateError('');
     setShowParentalGate(false);
 
     if (urlToOpen) {
@@ -1282,7 +1283,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          requestExternalAccess(mediaLinks.youtube);
+                          requestExternalAccess(mediaLinks.youtube, 'YouTube');
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1291,7 +1292,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          requestExternalAccess(mediaLinks.spotify);
+                          requestExternalAccess(mediaLinks.spotify, 'Spotify');
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1323,7 +1324,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          requestExternalAccess(mediaLinks.youtube);
+                          requestExternalAccess(mediaLinks.youtube, 'YouTube');
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1332,7 +1333,7 @@ export default function App() {
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
-                          requestExternalAccess(mediaLinks.spotify);
+                          requestExternalAccess(mediaLinks.spotify, 'Spotify');
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
@@ -1363,14 +1364,14 @@ export default function App() {
                           <View style={styles.episodeMediaRow}>
                             <Pressable
                               style={styles.episodeMediaBtn}
-                              onPress={() => { requestExternalAccess(mediaLinks.youtube); }}
+                              onPress={() => { requestExternalAccess(mediaLinks.youtube, 'YouTube'); }}
                             >
                               <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
                               <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
                             </Pressable>
                             <Pressable
                               style={styles.episodeMediaBtn}
-                              onPress={() => { requestExternalAccess(mediaLinks.spotify); }}
+                              onPress={() => { requestExternalAccess(mediaLinks.spotify, 'Spotify'); }}
                             >
                               <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
                               <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
@@ -1828,27 +1829,59 @@ export default function App() {
       onRequestClose={() => {
         setShowParentalGate(false);
         setPendingExternalUrl(null);
+        setParentalGateAnswer('');
+        setParentalGateError('');
       }}
     >
       <View style={styles.parentalGateOverlay}>
         <View style={styles.parentalGateCard}>
           <Text style={styles.parentalGateTitle}>Zanim opuścisz aplikację</Text>
           <Text style={styles.parentalGateText}>
-            To połączenie otworzy zewnętrzną stronę internetową. Wymagana jest zgoda rodzica lub opiekuna.
+            Ta funkcja otworzy {pendingDestination}. Wymagana jest zgoda rodzica lub opiekuna.
           </Text>
+
+          <Text style={styles.parentalGateLabel}>Zadanie dla rodzica</Text>
+          <Text style={styles.parentalGateQuestion}>
+            Ile to jest {parentalGateQuestion.a} + {parentalGateQuestion.b}?
+          </Text>
+
+          <TextInput
+            value={parentalGateAnswer}
+            onChangeText={setParentalGateAnswer}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            placeholder="Wpisz odpowiedź"
+            placeholderTextColor="#8f7a5d"
+            style={styles.parentalGateInput}
+            autoFocus
+            maxLength={3}
+            onSubmitEditing={approveParentalGate}
+          />
+
+          {parentalGateError ? (
+            <Text style={styles.parentalGateError}>{parentalGateError}</Text>
+          ) : null}
+
           <View style={styles.parentalGateActions}>
             <Pressable
               style={[styles.parentalGateButton, styles.parentalGateButtonSecondary]}
               onPress={() => {
                 setShowParentalGate(false);
                 setPendingExternalUrl(null);
+                setParentalGateAnswer('');
+                setParentalGateError('');
               }}
             >
               <Text style={styles.parentalGateButtonSecondaryText}>Anuluj</Text>
             </Pressable>
             <Pressable
-              style={[styles.parentalGateButton, styles.parentalGateButtonPrimary]}
+              style={[
+                styles.parentalGateButton,
+                styles.parentalGateButtonPrimary,
+                !parentalGateAnswer && styles.parentalGateButtonDisabled,
+              ]}
               onPress={approveParentalGate}
+              disabled={!parentalGateAnswer}
             >
               <Text style={styles.parentalGateButtonPrimaryText}>Tak, otwórz</Text>
             </Pressable>
@@ -2955,6 +2988,39 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center',
   },
+  parentalGateLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#735d35',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  parentalGateQuestion: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#402b15',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  parentalGateInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#ebd6a7',
+    borderRadius: 12,
+    height: 52,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#402b15',
+    marginBottom: 10,
+  },
+  parentalGateError: {
+    color: '#b53035',
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   parentalGateActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2970,6 +3036,9 @@ const styles = StyleSheet.create({
   },
   parentalGateButtonPrimary: {
     backgroundColor: '#cb3f45',
+  },
+  parentalGateButtonDisabled: {
+    opacity: 0.45,
   },
   parentalGateButtonSecondary: {
     backgroundColor: '#fff0e8',
