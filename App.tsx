@@ -3,13 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
-import * as WebBrowser from 'expo-web-browser';
 import {
   Animated,
   Alert,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Pressable,
   Platform,
@@ -767,11 +767,7 @@ export default function App() {
 
   const openEpisodeLink = async (url: string) => {
     try {
-      await WebBrowser.openBrowserAsync(url, {
-        toolbarColor: '#fff8e8',
-        controlsColor: '#cb3f45',
-        showTitle: true,
-      });
+      await Linking.openURL(url);
     } catch {
       Alert.alert('Nie udało się otworzyć linku', 'Sprawdź, czy link do odcinka jest poprawny.');
     }
