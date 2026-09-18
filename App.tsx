@@ -9,8 +9,10 @@ import {
   Alert,
   Image,
   ImageBackground,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -1833,34 +1835,44 @@ export default function App() {
         setParentalGateError('');
       }}
     >
-      <View style={styles.parentalGateOverlay}>
+      <KeyboardAvoidingView
+        style={styles.parentalGateOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={styles.parentalGateCard}>
-          <Text style={styles.parentalGateTitle}>Zanim opuścisz aplikację</Text>
-          <Text style={styles.parentalGateText}>
-            Ta funkcja otworzy {pendingDestination}. Wymagana jest zgoda rodzica lub opiekuna.
-          </Text>
+          <ScrollView
+            style={styles.parentalGateContent}
+            contentContainerStyle={styles.parentalGateContentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.parentalGateTitle}>Zanim opuścisz aplikację</Text>
+            <Text style={styles.parentalGateText}>
+              Ta funkcja otworzy {pendingDestination}. Wymagana jest zgoda rodzica lub opiekuna.
+            </Text>
 
-          <Text style={styles.parentalGateLabel}>Zadanie dla rodzica</Text>
-          <Text style={styles.parentalGateQuestion}>
-            Ile to jest {parentalGateQuestion.a} + {parentalGateQuestion.b}?
-          </Text>
+            <Text style={styles.parentalGateLabel}>Zadanie dla rodzica</Text>
+            <Text style={styles.parentalGateQuestion}>
+              Ile to jest {parentalGateQuestion.a} + {parentalGateQuestion.b}?
+            </Text>
 
-          <TextInput
-            value={parentalGateAnswer}
-            onChangeText={setParentalGateAnswer}
-            keyboardType="number-pad"
-            inputMode="numeric"
-            placeholder="Wpisz odpowiedź"
-            placeholderTextColor="#8f7a5d"
-            style={styles.parentalGateInput}
-            autoFocus
-            maxLength={3}
-            onSubmitEditing={approveParentalGate}
-          />
+            <TextInput
+              value={parentalGateAnswer}
+              onChangeText={setParentalGateAnswer}
+              keyboardType="number-pad"
+              inputMode="numeric"
+              placeholder="Wpisz odpowiedź"
+              placeholderTextColor="#8f7a5d"
+              style={styles.parentalGateInput}
+              autoFocus
+              maxLength={3}
+              onSubmitEditing={approveParentalGate}
+            />
 
-          {parentalGateError ? (
-            <Text style={styles.parentalGateError}>{parentalGateError}</Text>
-          ) : null}
+            {parentalGateError ? (
+              <Text style={styles.parentalGateError}>{parentalGateError}</Text>
+            ) : null}
+          </ScrollView>
 
           <View style={styles.parentalGateActions}>
             <Pressable
@@ -1887,7 +1899,7 @@ export default function App() {
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
 
     {/* Swimming character selection modal */}
@@ -2968,12 +2980,19 @@ const styles = StyleSheet.create({
   parentalGateCard: {
     width: '100%',
     maxWidth: 420,
+    maxHeight: '90%',
     backgroundColor: '#fff8e8',
     borderRadius: 22,
     borderWidth: 2,
     borderColor: '#efd8a2',
-    padding: 24,
-    gap: 18,
+    padding: 20,
+  },
+  parentalGateContent: {
+    flexShrink: 1,
+  },
+  parentalGateContentContainer: {
+    gap: 14,
+    paddingBottom: 4,
   },
   parentalGateTitle: {
     fontSize: 24,
@@ -3025,6 +3044,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+    marginTop: 16,
   },
   parentalGateButton: {
     flex: 1,
