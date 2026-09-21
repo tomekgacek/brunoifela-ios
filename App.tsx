@@ -213,12 +213,16 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
     spotify: 'https://open.spotify.com/episode/2Zj0CKjGiyI5FHdsZFYqkZ?si=S3up1bBZTJ-nxlvLagMX9w',
   },
   S03E03: {
-    youtube: 'https://youtu.be/yP3BRrV9ktU',
-    spotify: 'https://open.spotify.com/episode/1iW8r8xbpDJJrdARk8MHpb?si=IfL9lQOpT6aqD4vK07tgRg',
+    youtube: 'https://youtu.be/d7hWb2qACHw',
+    spotify: 'https://open.spotify.com/episode/3w0QlR7HYBSL00HN1jQ2CR?si=SRvbo4h4SdSyo6Fik6OWKg',
   },
   S03E04: {
-    youtube: 'https://youtu.be/Hqd5Jh_XVIQ',
-    spotify: 'https://open.spotify.com/episode/3VcyphnDva43jwQW6HK7vU?si=0swjMfh_RsqW6wNI1d5qOw',
+    youtube: 'https://youtu.be/tgWhb4U-PPU',
+    spotify: 'https://open.spotify.com/episode/3a1ZCA0q5K3timl3ZhwOQY?si=SwRvSidHRMCRoF5nZICoQQ',
+  },
+  S03E05: {
+    youtube: 'https://youtu.be/TUbq6llktT0',
+    spotify: 'https://open.spotify.com/episode/0uSsASBvyGurpyjR7r3vwv?si=CJD73eFsRzOuwzPccDqufA',
   },
 };
 
