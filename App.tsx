@@ -35,6 +35,7 @@ import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './
 import { PuzzleGame } from './src/games/PuzzleGame';
 import { ColoringGame } from './src/games/ColoringGame';
 import { SwimmingGame } from './src/games/SwimmingGame';
+import { translations, type Language } from './src/locales';
 
 const mapImage = require('./assets/game/mapa.jpeg');
 const mapaS02Image = require('./assets/game/mapa_s02.png');
@@ -109,6 +110,7 @@ const STORAGE_KEYS = {
   quizScores: 'brunoifela.quizScores.v1',
   selectedEpisode: 'brunoifela.selectedEpisode.v1',
   dailyProgress: 'brunoifela.dailyProgress.v1',
+  language: 'brunoifela.language.v1',
 };
 
 type EpisodeMediaLinks = {
@@ -280,6 +282,9 @@ export default function App() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const allEpisodes = useMemo(() => [...seasonEpisodes, ...season2Episodes, ...season3Episodes], []);
 
+  const [language, setLanguage] = useState<Language>('pl');
+  const [languageLoaded, setLanguageLoaded] = useState(false);
+  const t = translations[language];
   const [screen, setScreen] = useState<Screen>('splash');
   const [activeGameTab, setActiveGameTab] = useState<GameTab>('zrecznosciowa');
   const [fullscreenGame, setFullscreenGame] = useState<GameTab | null>(null);
@@ -397,6 +402,15 @@ export default function App() {
     });
   };
 
+  const toggleLanguage = () => setLanguage((current) => (current === 'pl' ? 'en' : 'pl'));
+
+  const getMenuLabel = (targetScreen: InnerScreen) => {
+    if (targetScreen === 'odcinki') return t.menuEpisodes;
+    if (targetScreen === 'quiz') return t.menuQuiz;
+    if (targetScreen === 'mapa') return t.menuMap;
+    return t.menuGames;
+  };
+
   const selectedLocation = useMemo(() => {
     const data = mapSeason === 1 ? seasonMapData : mapSeason === 2 ? season2MapData : season3MapData;
     return data.find((location) => location.id === selectedLocationId) ?? data[0];
@@ -476,6 +490,32 @@ export default function App() {
 
   const announce = (text: string) => {
     const playVoice = async () => {
+      if (language === 'en') {
+        const englishVoiceLines: Record<string, string> = {
+          'Koniec rundy': t.roundOverVoice,
+          'Nowy rekord': t.newRecordVoice,
+          Start: t.start,
+          Brawo: t.wellDoneVoice,
+          'Super wynik': t.greatScoreVoice,
+          'Dobra proba': t.tryVoice,
+          'Nowa plansza': t.newBoardVoice,
+          'Brak ruchow, nowa plansza': t.noMovesVoice,
+          'Koniec ruchow': t.noMovesLeftVoice,
+          Combo: t.comboVoice,
+          Swietnie: t.greatVoice,
+          'Postep zresetowany': t.resetProgressVoice,
+          'Brawo, puzzle rozwiazane': t.puzzleSolvedVoice,
+          'Swietny rysunek': t.niceDrawingVoice,
+        };
+        Speech.stop();
+        Speech.speak(englishVoiceLines[text] ?? text, {
+          language: 'en-US',
+          rate: 1,
+          pitch: 1.05,
+        });
+        return;
+      }
+
       try {
         const clip = VOICE_CLIPS[text];
         if (!clip) {
@@ -543,11 +583,16 @@ export default function App() {
   useEffect(() => {
     const loadPersistedState = async () => {
       try {
-        const [savedScoresRaw, savedEpisode, savedDailyRaw] = await Promise.all([
+        const [savedScoresRaw, savedEpisode, savedDailyRaw, savedLanguage] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.quizScores),
           AsyncStorage.getItem(STORAGE_KEYS.selectedEpisode),
           AsyncStorage.getItem(STORAGE_KEYS.dailyProgress),
+          AsyncStorage.getItem(STORAGE_KEYS.language),
         ]);
+
+        if (savedLanguage === 'pl' || savedLanguage === 'en') {
+          setLanguage(savedLanguage);
+        }
 
         if (savedScoresRaw) {
           const parsed = JSON.parse(savedScoresRaw) as Record<string, number>;
@@ -586,11 +631,23 @@ export default function App() {
         }
       } catch {
         // Ignore persistence errors and continue with in-memory defaults.
+      } finally {
+        setLanguageLoaded(true);
       }
     };
 
     loadPersistedState();
   }, []);
+
+  useEffect(() => {
+    if (!languageLoaded) {
+      return;
+    }
+
+    AsyncStorage.setItem(STORAGE_KEYS.language, language).catch(() => {
+      // Ignore persistence errors and continue with in-memory state.
+    });
+  }, [language, languageLoaded]);
 
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEYS.quizScores, JSON.stringify(quizScores)).catch(() => {
@@ -683,7 +740,7 @@ export default function App() {
     if (!tapPlaying && tapScore > tapBest) {
       setTapBest(tapScore);
       announce('Nowy rekord');
-      showFeedback('Nowy rekord!');
+      showFeedback(language === 'en' ? `${t.newRecordVoice}!` : 'Nowy rekord!');
     }
   }, [tapBest, tapPlaying, tapScore]);
 
@@ -785,7 +842,7 @@ export default function App() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert('Nie udało się otworzyć linku', 'Sprawdź, czy link do odcinka jest poprawny.');
+      Alert.alert(t.linkOpenErrorTitle, t.linkOpenErrorMessage);
     }
   };
 
@@ -803,7 +860,7 @@ export default function App() {
     const userAnswer = Number(parentalGateAnswer);
 
     if (userAnswer !== parentalGateQuestion.answer) {
-      setParentalGateError('Spróbuj ponownie. Odpowiedź jest nieprawidłowa.');
+      setParentalGateError(t.tryAgain);
       setParentalGateAnswer('');
       return;
     }
@@ -824,7 +881,7 @@ export default function App() {
     if (quizAnswers[questionId] !== correctIndex && optionIndex === correctIndex) {
       const praise = Math.random() < 0.5 ? 'Brawo' : 'Swietnie';
       announce(praise);
-      showFeedback(praise === 'Brawo' ? 'Brawo!' : 'Świetnie!');
+      showFeedback(praise === 'Brawo' ? `${t.wellDoneVoice}!` : `${t.greatVoice}!`);
     }
 
     setQuizAnswers((current) => ({
@@ -856,15 +913,15 @@ export default function App() {
       return sum + (quizAnswers[question.id] === question.correctIndex ? 1 : 0);
     }, 0);
 
-    let feedbackText = 'Dobra próba!';
+    let feedbackText = t.goodTry;
     if (score === 3) {
-      feedbackText = 'Brawo! 3/3. Jesteś mistrzem tego odcinka!';
+      feedbackText = t.episodeFeedback3;
     } else if (score === 2) {
-      feedbackText = 'Super! 2/3. Odcinek zaliczony i kolejny odblokowany.';
+      feedbackText = t.episodeFeedback2;
     } else if (score === 1) {
-      feedbackText = 'Masz 1/3. Spróbuj jeszcze raz, jest coraz lepiej!';
+      feedbackText = t.episodeFeedback1;
     } else if (score === 0) {
-      feedbackText = 'Nic nie szkodzi! Posłuchaj opowieści i spróbuj ponownie.';
+      feedbackText = t.episodeFeedback0;
     }
 
     setQuizScores((current) => ({
@@ -994,13 +1051,13 @@ export default function App() {
   };
 
   const askResetProgress = () => {
-    Alert.alert('Reset postępu', 'Czy na pewno chcesz wyzerować cały postęp gry?', [
+    Alert.alert(t.resetProgressTitle, t.resetProgressMessage, [
       {
-        text: 'Anuluj',
+        text: t.cancel,
         style: 'cancel',
       },
       {
-        text: 'Resetuj',
+        text: t.resetProgress,
         style: 'destructive',
         onPress: () => {
           void resetAllProgress();
@@ -1011,21 +1068,31 @@ export default function App() {
 
   if (screen === 'splash') {
     return (
-      <Pressable
-        style={{ flex: 1, backgroundColor: '#1b3d1b' }}
-        onPress={handleSplashTap}
-        accessibilityRole="button"
-        accessibilityLabel="Dotknij, aby przejść dalej"
-      >
+      <View style={{ flex: 1, backgroundColor: '#1b3d1b' }}>
         <StatusBar style="light" />
-        <Animated.View style={{ flex: 1, opacity: splashOpacity }}>
-          <Image
-            source={splashImg}
-            style={{ width: screenW, height: screenH }}
-            resizeMode="cover"
-          />
-        </Animated.View>
-      </Pressable>
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={handleSplashTap}
+          accessibilityRole="button"
+          accessibilityLabel={t.continue}
+        >
+          <Animated.View style={{ flex: 1, opacity: splashOpacity }}>
+            <Image
+              source={splashImg}
+              style={{ width: screenW, height: screenH }}
+              resizeMode="cover"
+            />
+          </Animated.View>
+        </Pressable>
+        <Pressable
+          onPress={toggleLanguage}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.language}: ${t.switchLanguage}`}
+          style={[styles.languageButton, { position: 'absolute', top: 52, right: 16 }]}
+        >
+          <Text style={styles.languageButtonText}>{t.switchLanguage}</Text>
+        </Pressable>
+      </View>
     );
   }
 
@@ -1044,17 +1111,43 @@ export default function App() {
               key={targetScreen}
               onPress={() => handleMenuTap(targetScreen)}
               accessibilityRole="button"
-              accessibilityLabel={targetScreen}
+              accessibilityLabel={getMenuLabel(targetScreen)}
               style={{
                 position: 'absolute',
                 left: menuOffsetX + lf * menuRenderedW,
                 top: menuOffsetY + tf * menuRenderedH,
                 width: wf * menuRenderedW,
                 height: hf * menuRenderedH,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-            />
+            >
+              {language === 'en' && (
+                <Text
+                  style={{
+                    overflow: 'hidden',
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(35,73,26,0.94)',
+                    color: '#fff',
+                    fontWeight: '800',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                  }}
+                >
+                  {getMenuLabel(targetScreen)}
+                </Text>
+              )}
+            </Pressable>
           ))}
         </View>
+        <Pressable
+          onPress={toggleLanguage}
+          accessibilityRole="button"
+          accessibilityLabel={`${t.language}: ${t.switchLanguage}`}
+          style={[styles.languageButton, { position: 'absolute', top: 52, right: 16 }]}
+        >
+          <Text style={styles.languageButtonText}>{t.switchLanguage}</Text>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -1068,15 +1161,18 @@ export default function App() {
 
         <View style={styles.screenTopBar}>
           <Pressable onPress={goToMenu} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Menu</Text>
+            <Text style={styles.backBtnText}>← {t.menu}</Text>
           </Pressable>
           <View style={styles.topBarRight}>
+            <Pressable onPress={toggleLanguage} style={styles.languageButton}>
+              <Text style={styles.languageButtonText}>{t.switchLanguage}</Text>
+            </Pressable>
             {screen === 'quiz' && (
               <Text style={styles.topBarStars}>⭐ {totalStars}/{totalStarsCap}</Text>
             )}
             {screen === 'quiz' && (
               <Pressable onPress={askResetProgress} style={styles.resetProgressButton}>
-                <Text style={styles.resetProgressButtonText}>Reset</Text>
+                <Text style={styles.resetProgressButtonText}>{t.reset}</Text>
               </Pressable>
             )}
           </View>
@@ -1084,11 +1180,11 @@ export default function App() {
 
         {screen === 'quiz' && (
           <View style={styles.dailyGoalCard}>
-            <Text style={styles.dailyGoalTitle}>Dzienny cel</Text>
+            <Text style={styles.dailyGoalTitle}>{t.dailyGoal}</Text>
             <Text style={styles.dailyGoalText}>
-              Gwiazdki: {dailyStars}/{dailyStarsGoal} | Rundy: {dailyRounds}/{dailyRoundsGoal}
+              {t.stars}: {dailyStars}/{dailyStarsGoal} | {t.rounds}: {dailyRounds}/{dailyRoundsGoal}
             </Text>
-            <Text style={styles.dailyGoalBadge}>{dailyGoalDone ? 'Cel ukończony! 🎉' : 'Działaj dalej!'}</Text>
+            <Text style={styles.dailyGoalBadge}>{dailyGoalDone ? t.goalComplete : t.keepGoing}</Text>
           </View>
         )}
 
@@ -1104,7 +1200,7 @@ export default function App() {
                 onPress={() => setQuizSeason(1)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 1 && styles.mapSeasonBtnTextActive]}>
-                  🌳 Sezon 1
+                  {t.season1.split(' — ')[0]} {t.season} 1
                 </Text>
               </Pressable>
               <Pressable
@@ -1112,7 +1208,7 @@ export default function App() {
                 onPress={() => setQuizSeason(2)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 2 && styles.mapSeasonBtnTextActive]}>
-                  ☀️ Sezon 2
+                  {t.season2.split(' — ')[0]} {t.season} 2
                 </Text>
               </Pressable>
               <Pressable
@@ -1120,7 +1216,7 @@ export default function App() {
                 onPress={() => setQuizSeason(3)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 3 && styles.mapSeasonBtnTextActive]}>
-                  🍂 Sezon 3
+                  {t.season3.split(' — ')[0]} {t.season} 3
                 </Text>
               </Pressable>
             </View>
@@ -1153,7 +1249,7 @@ export default function App() {
 
         {screen === 'mapa' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Mapa przygod</Text>
+            <Text style={styles.sectionTitle}>{t.mapTitle}</Text>
 
             {/* Season selector */}
             <View style={styles.mapSeasonSelector}>
@@ -1199,11 +1295,11 @@ export default function App() {
                 onPress={() => setMapCleanView((v) => !v)}
               >
                 <Text style={[styles.mapViewBtnText, mapCleanView && styles.mapViewBtnTextActive]}>
-                  {mapCleanView ? '📍 Pokaż znaczniki' : '🧭 Czysta mapa'}
+                  {mapCleanView ? t.showMarkers : t.cleanMap}
                 </Text>
               </Pressable>
               <Pressable style={styles.mapViewBtn} onPress={() => setShowMapFullscreen(true)}>
-                <Text style={styles.mapViewBtnText}>🔍 Cała mapa na ekranie</Text>
+                <Text style={styles.mapViewBtnText}>{t.fullMap}</Text>
               </Pressable>
             </View>
 
@@ -1235,10 +1331,14 @@ export default function App() {
 
             <View style={styles.detailCard}>
               <Text style={styles.detailTitle}>
-                {selectedLocation.icon} {selectedLocation.name}
+                {language === 'en'
+                  ? `${selectedLocation.icon} ${t.mapLocation}`
+                  : `${selectedLocation.icon} ${selectedLocation.name}`}
               </Text>
-              {mapEvents.length === 0 ? (
-                <Text style={styles.factText}>Wybierz miejsce na mapie.</Text>
+              {language === 'en' ? (
+                <Text style={styles.factText}>{t.mapLocationDetailsComingSoon}</Text>
+              ) : mapEvents.length === 0 ? (
+                <Text style={styles.factText}>{t.chooseMapLocation}</Text>
               ) : (
                 mapEvents.map((event, index) => (
                   <View key={`${selectedLocation.id}-${index}`} style={styles.mapEventRow}>
@@ -1254,7 +1354,7 @@ export default function App() {
         )}
         {screen === 'odcinki' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Odcinki</Text>
+            <Text style={styles.sectionTitle}>{t.episodesTitle}</Text>
 
             {/* Season dropdown */}
             <View style={{ zIndex: 20 }}>
@@ -1263,13 +1363,18 @@ export default function App() {
                 onPress={() => setOdcinkiDropdownOpen((o) => !o)}
               >
                 <Text style={styles.dropdownTriggerText}>
-                  {odcinkiSeason === 'all' ? 'Wszystkie sezony' : `Sezon ${odcinkiSeason}`}
+                  {odcinkiSeason === 'all' ? t.seasonAll : `${t.season} ${odcinkiSeason}`}
                 </Text>
                 <Text style={styles.dropdownArrow}>{odcinkiDropdownOpen ? '▲' : '▼'}</Text>
               </Pressable>
               {odcinkiDropdownOpen && (
                 <View style={styles.dropdownMenu}>
-                  {([{ label: 'Wszystkie sezony', value: 'all' }, { label: 'Sezon 1', value: 1 }, { label: 'Sezon 2', value: 2 }, { label: 'Sezon 3', value: 3 }] as { label: string; value: 'all' | 1 | 2 | 3 }[]).map((opt) => (
+                  {([
+                    { label: t.seasonAll, value: 'all' },
+                    { label: `${t.season} 1`, value: 1 },
+                    { label: `${t.season} 2`, value: 2 },
+                    { label: `${t.season} 3`, value: 3 },
+                  ] as { label: string; value: 'all' | 1 | 2 | 3 }[]).map((opt) => (
                     <Pressable
                       key={String(opt.value)}
                       style={[styles.dropdownItem, odcinkiSeason === opt.value && styles.dropdownItemActive]}
@@ -1287,7 +1392,7 @@ export default function App() {
             {(odcinkiSeason === 'all' || odcinkiSeason === 1) && (
               <>
                 <View style={styles.seasonHeader}>
-                  <Text style={styles.seasonHeaderText}>🌳 Sezon 1 — Leśna Szkoła</Text>
+                  <Text style={styles.seasonHeaderText}>{t.season1}</Text>
                 </View>
                 {seasonEpisodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
@@ -1295,9 +1400,19 @@ export default function App() {
                       const mediaLinks = getEpisodeMediaLinks(episode.code);
                       return (
                         <>
-                    <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
-                    <Text style={styles.missionText}>{episode.description}</Text>
-                    <View style={styles.episodeMediaRow}>
+                    <Text style={styles.missionTitle}>
+                      {language === 'en' ? `${t.englishEpisodeTitle} ${episode.code}` : `${episode.code} — ${episode.title}`}
+                    </Text>
+                    <Text style={styles.missionText}>
+                      {language === 'en' ? t.englishAudioDetails : episode.description}
+                    </Text>
+                    {language === 'en' ? (
+                      <View style={styles.episodeMediaRow}>
+                        <View style={styles.episodeMediaBtn}>
+                          <Text style={styles.episodeMediaBtnText}>{t.englishAudioComingSoon}</Text>
+                        </View>
+                      </View>
+                    ) : <View style={styles.episodeMediaRow}>
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
@@ -1305,7 +1420,7 @@ export default function App() {
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                        <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
+                        <Text style={styles.episodeMediaBtnText}>{t.watchYouTube}</Text>
                       </Pressable>
                       <Pressable
                         style={styles.episodeMediaBtn}
@@ -1314,9 +1429,9 @@ export default function App() {
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                        <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
+                        <Text style={styles.episodeMediaBtnText}>{t.listenSpotify}</Text>
                       </Pressable>
-                    </View>
+                    </View>}
                         </>
                       );
                     })()}
@@ -1328,7 +1443,7 @@ export default function App() {
             {(odcinkiSeason === 'all' || odcinkiSeason === 2) && (
               <>
                 <View style={[styles.seasonHeader, odcinkiSeason === 'all' ? { marginTop: 6 } : {}]}>
-                  <Text style={styles.seasonHeaderText}>☀️ Sezon 2 — Wakacyjne Przygody</Text>
+                  <Text style={styles.seasonHeaderText}>{t.season2}</Text>
                 </View>
                 {season2Episodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
@@ -1336,9 +1451,19 @@ export default function App() {
                       const mediaLinks = getEpisodeMediaLinks(episode.code);
                       return (
                         <>
-                    <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
-                    <Text style={styles.missionText}>{episode.description}</Text>
-                    <View style={styles.episodeMediaRow}>
+                    <Text style={styles.missionTitle}>
+                      {language === 'en' ? `${t.englishEpisodeTitle} ${episode.code}` : `${episode.code} — ${episode.title}`}
+                    </Text>
+                    <Text style={styles.missionText}>
+                      {language === 'en' ? t.englishAudioDetails : episode.description}
+                    </Text>
+                    {language === 'en' ? (
+                      <View style={styles.episodeMediaRow}>
+                        <View style={styles.episodeMediaBtn}>
+                          <Text style={styles.episodeMediaBtnText}>{t.englishAudioComingSoon}</Text>
+                        </View>
+                      </View>
+                    ) : <View style={styles.episodeMediaRow}>
                       <Pressable
                         style={styles.episodeMediaBtn}
                         onPress={() => {
@@ -1346,7 +1471,7 @@ export default function App() {
                         }}
                       >
                         <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                        <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
+                        <Text style={styles.episodeMediaBtnText}>{t.watchYouTube}</Text>
                       </Pressable>
                       <Pressable
                         style={styles.episodeMediaBtn}
@@ -1355,9 +1480,9 @@ export default function App() {
                         }}
                       >
                         <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                        <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
+                        <Text style={styles.episodeMediaBtnText}>{t.listenSpotify}</Text>
                       </Pressable>
-                    </View>
+                    </View>}
                         </>
                       );
                     })()}
@@ -1369,7 +1494,7 @@ export default function App() {
             {(odcinkiSeason === 'all' || odcinkiSeason === 3) && (
               <>
                 <View style={[styles.seasonHeader, odcinkiSeason === 'all' ? { marginTop: 6 } : {}]}>
-                  <Text style={styles.seasonHeaderText}>🍂 Sezon 3 — Jesienne Tajemnice</Text>
+                  <Text style={styles.seasonHeaderText}>{t.season3}</Text>
                 </View>
                 {season3Episodes.map((episode) => (
                   <View key={episode.code} style={styles.missionCard}>
@@ -1377,24 +1502,34 @@ export default function App() {
                       const mediaLinks = getEpisodeMediaLinks(episode.code);
                       return (
                         <>
-                          <Text style={styles.missionTitle}>{episode.code} — {episode.title}</Text>
-                          <Text style={styles.missionText}>{episode.description}</Text>
-                          <View style={styles.episodeMediaRow}>
+                          <Text style={styles.missionTitle}>
+                            {language === 'en' ? `${t.englishEpisodeTitle} ${episode.code}` : `${episode.code} — ${episode.title}`}
+                          </Text>
+                          <Text style={styles.missionText}>
+                            {language === 'en' ? t.englishAudioDetails : episode.description}
+                          </Text>
+                          {language === 'en' ? (
+                            <View style={styles.episodeMediaRow}>
+                              <View style={styles.episodeMediaBtn}>
+                                <Text style={styles.episodeMediaBtnText}>{t.englishAudioComingSoon}</Text>
+                              </View>
+                            </View>
+                          ) : <View style={styles.episodeMediaRow}>
                             <Pressable
                               style={styles.episodeMediaBtn}
                               onPress={() => { requestExternalAccess(mediaLinks.youtube, 'YouTube'); }}
                             >
                               <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                              <Text style={styles.episodeMediaBtnText}>Oglądaj na YouTube</Text>
+                              <Text style={styles.episodeMediaBtnText}>{t.watchYouTube}</Text>
                             </Pressable>
                             <Pressable
                               style={styles.episodeMediaBtn}
                               onPress={() => { requestExternalAccess(mediaLinks.spotify, 'Spotify'); }}
                             >
                               <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
-                              <Text style={styles.episodeMediaBtnText}>Słuchaj w Spotify</Text>
+                              <Text style={styles.episodeMediaBtnText}>{t.listenSpotify}</Text>
                             </Pressable>
-                          </View>
+                          </View>}
                         </>
                       );
                     })()}
@@ -1406,31 +1541,34 @@ export default function App() {
         )}
         {screen === 'quiz' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Mini quiz</Text>
-            <Text style={styles.sectionDescription}>
-              3 pytania na odcinek. Najlepszy wynik zapisuje się jako gwiazdki. Odcinki odblokowują się po 2/3.
-            </Text>
-            {!unlockedEpisodeMap[selectedEpisodeCode] ? (
+            <Text style={styles.sectionTitle}>{t.quizTitle}</Text>
+            <Text style={styles.sectionDescription}>{t.quizDescription}</Text>
+            {language === 'en' ? (
               <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonTitle}>Odcinek zablokowany</Text>
+                <Text style={styles.nextSeasonTitle}>{t.quizComingSoonTitle}</Text>
+                <Text style={styles.nextSeasonText}>{t.quizComingSoonDetails}</Text>
+              </View>
+            ) : !unlockedEpisodeMap[selectedEpisodeCode] ? (
+              <View style={styles.nextSeasonCard}>
+                <Text style={styles.nextSeasonTitle}>{t.episodeLocked}</Text>
                 <Text style={styles.nextSeasonText}>
-                  Aby odblokować ten odcinek, zdobądź minimum 2/3 gwiazdki w poprzednim.
+                  {t.unlockEpisode}
                 </Text>
               </View>
             ) : !selectedQuiz ? (
               <View style={styles.nextSeasonCard}>
-                <Text style={styles.nextSeasonTitle}>Brak pytań</Text>
-                <Text style={styles.nextSeasonText}>Dla tego odcinka quiz nie został jeszcze przygotowany.</Text>
+                <Text style={styles.nextSeasonTitle}>{t.noQuestions}</Text>
+                <Text style={styles.nextSeasonText}>{t.quizNotReady}</Text>
               </View>
             ) : (
               <>
                 <View style={styles.nextSeasonCard}>
                   <Text style={styles.nextSeasonTitle}>
-                    {selectedEpisode.code} - najlepszy wynik: {quizScores[selectedEpisode.code] ?? 0}/3 ({scoreToStars(
+                    {selectedEpisode.code} - {t.bestScore}: {quizScores[selectedEpisode.code] ?? 0}/3 ({scoreToStars(
                       quizScores[selectedEpisode.code] ?? 0,
                     )})
                   </Text>
-                  <Text style={styles.nextSeasonText}>Tytuł odcinka: {selectedEpisode.title}</Text>
+                  <Text style={styles.nextSeasonText}>{t.episodeTitle}: {selectedEpisode.title}</Text>
                   {quizFeedback[selectedEpisode.code] ? (
                     <Text style={styles.quizFeedbackText}>{quizFeedback[selectedEpisode.code]}</Text>
                   ) : null}
@@ -1462,14 +1600,14 @@ export default function App() {
 
                 <View style={styles.quizActions}>
                   <Pressable style={styles.quizPrimaryButton} onPress={submitQuiz}>
-                    <Text style={styles.quizPrimaryButtonText}>Sprawdź wynik</Text>
+                    <Text style={styles.quizPrimaryButtonText}>{t.checkScore}</Text>
                   </Pressable>
                   <Pressable style={styles.quizSecondaryButton} onPress={resetQuiz}>
-                    <Text style={styles.quizSecondaryButtonText}>Wyczyść odpowiedzi</Text>
+                    <Text style={styles.quizSecondaryButtonText}>{t.clearAnswers}</Text>
                   </Pressable>
                   {prevQuizEpisode ? (
                     <Pressable style={styles.quizSecondaryButton} onPress={goToPreviousQuizEpisode}>
-                      <Text style={styles.quizSecondaryButtonText}>Wstecz: {prevQuizEpisode.code}</Text>
+                      <Text style={styles.quizSecondaryButtonText}>{t.previous}: {prevQuizEpisode.code}</Text>
                     </Pressable>
                   ) : null}
                   {nextQuizEpisode ? (
@@ -1480,12 +1618,12 @@ export default function App() {
                     >
                       <Text style={[styles.quizPrimaryButtonText, !isNextQuizEpisodeUnlocked && styles.quizPrimaryButtonTextDisabled]}>
                         {isNextQuizEpisodeUnlocked
-                          ? `Dalej: ${nextQuizEpisode.code}`
-                          : `Dalej: ${nextQuizEpisode.code} 🔒`}
+                          ? `${t.next}: ${nextQuizEpisode.code}`
+                          : `${t.next}: ${nextQuizEpisode.code} 🔒`}
                       </Text>
                     </Pressable>
                   ) : (
-                    <Text style={styles.nextSeasonText}>To ostatni odcinek tego sezonu. Brawo!</Text>
+                    <Text style={styles.nextSeasonText}>{t.lastEpisode}</Text>
                   )}
                 </View>
               </>
@@ -1494,21 +1632,21 @@ export default function App() {
         )}
         {screen === 'gry' && (
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Minigry</Text>
-            <Text style={styles.sectionDescription}>Wybierz grę — otworzy się w pełnym ekranie.</Text>
+            <Text style={styles.sectionTitle}>{t.gamesTitle}</Text>
+            <Text style={styles.sectionDescription}>{t.chooseGame}</Text>
             <View style={styles.gameTabsGrid}>
               {(
                 [
-                  { id: 'zrecznosciowa', label: 'Łap Bruna i Felę!', icon: '🎯', hint: 'Refleks i szybkie tapnięcia' },
-                  { id: 'match3', label: 'Kafelki', icon: '💎', hint: 'Łącz 3+ obrazki i zbieraj punkty' },
-                  { id: 'puzzle', label: 'Puzzle', icon: '🧩', hint: 'Ułóż obrazek krok po kroku' },
-                  { id: 'kolorowanki', label: 'Kolorowanki', icon: '🎨', hint: 'Pokoloruj sceny Bruna i Feli' },
+                  { id: 'zrecznosciowa', label: t.catchBrunoFela, icon: '🎯', hint: t.catchHint },
+                  { id: 'match3', label: t.tiles, icon: '💎', hint: t.tilesHint },
+                  { id: 'puzzle', label: t.puzzle, icon: '🧩', hint: t.puzzleHint },
+                  { id: 'kolorowanki', label: t.coloring, icon: '🎨', hint: t.coloringHint },
                   {
                     id: 'pływanie',
-                    label: 'Przepłyn Rzekę!',
+                    label: t.swimRiver,
                     icon: '🏊',
                     image: riverThumbImg,
-                    hint: 'Omijaj przeszkody i płyń dalej',
+                    hint: t.swimHint,
                   },
                 ] as { id: GameTab; label: string; icon: string; image?: number; hint: string }[]
               ).map((g) => (
@@ -1555,13 +1693,13 @@ export default function App() {
         <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
           <View style={styles.fsHeader}>
             <Text style={styles.fsTitle}>
-              {fullscreenGame === 'zrecznosciowa' ? 'Łap Bruna i Felę!' :
-               fullscreenGame === 'match3' ? 'Kafelki' :
-               fullscreenGame === 'puzzle' ? 'Puzzle' :
-               fullscreenGame === 'pływanie' ? 'Przepłyn Rzekę!' : 'Kolorowanki'}
+              {fullscreenGame === 'zrecznosciowa' ? t.catchBrunoFela :
+               fullscreenGame === 'match3' ? t.tiles :
+               fullscreenGame === 'puzzle' ? t.puzzle :
+               fullscreenGame === 'pływanie' ? t.swimRiver : t.coloring}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
-              <Text style={styles.fsCloseBtnText}>✕ Zamknij</Text>
+              <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
             </Pressable>
           </View>
 
@@ -1571,31 +1709,31 @@ export default function App() {
                 {tapGameOver ? (
                   <View style={styles.gameEndCard}>
                     <Text style={styles.gameEndEmoji}>🎉</Text>
-                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
-                    <Text style={styles.gameEndScore}>Twój wynik: {tapScore} punktów</Text>
+                    <Text style={styles.gameEndTitle}>{t.congratulations}</Text>
+                    <Text style={styles.gameEndScore}>{t.yourScore}: {tapScore} {t.points}</Text>
                     {tapScore > 0 && tapScore >= tapBest && (
-                      <Text style={styles.gameEndRecord}>🏆 Nowy rekord!</Text>
+                      <Text style={styles.gameEndRecord}>{t.newRecord}</Text>
                     )}
                     <View style={styles.gameEndButtons}>
                       <Pressable style={styles.gameEndBtn} onPress={startTapGame}>
-                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                        <Text style={styles.gameEndBtnText}>{t.playAgain}</Text>
                       </Pressable>
                       <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setTapGameOver(false)}>
-                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                        <Text style={styles.gameEndBtnTextSecondary}>{t.close}</Text>
                       </Pressable>
                     </View>
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.tapRoundBadge}>Runda {tapRound}</Text>
+                    <Text style={styles.tapRoundBadge}>{t.round} {tapRound}</Text>
                     <Text style={styles.nextSeasonText}>
-                      Ikonki: {TAP_TARGETS_PER_ROUND[tapRound]} | Wynik: {tapScore} | Rekord: {tapBest}
+                      {t.icons}: {TAP_TARGETS_PER_ROUND[tapRound]} | {t.score}: {tapScore} | {t.record}: {tapBest}
                     </Text>
                     {tapPlaying && (
                       <Text style={styles.sectionDescription}>
-                        {tapRound === 1 ? 'Tapnij jedną ikonkę!' :
-                         tapRound === 2 ? 'Dwie ikonki naraz — użyj dwóch palców!' :
-                         'Trzy ikonki naraz — refleks na maksa!'}
+                        {tapRound === 1 ? t.tapOne :
+                         tapRound === 2 ? t.tapTwo :
+                         t.tapThree}
                       </Text>
                     )}
                     <Pressable
@@ -1648,14 +1786,14 @@ export default function App() {
                       {/* Centered round-start overlay: shown before the first round and again before each new round */}
                       {!tapPlaying && (
                         <View style={styles.arenaStartOverlay}>
-                          <Text style={styles.arenaStartTitle}>Runda {tapRound}/3</Text>
+                          <Text style={styles.arenaStartTitle}>{t.round} {tapRound}/3</Text>
                           <Text style={styles.arenaStartDesc}>
-                            {tapRound === 1 ? 'Sprawdź jak szybki jesteś!\nTapnij Bruna lub Felę!' :
-                             tapRound === 2 ? 'Teraz dwie ikonki naraz —\nużyj dwóch palców!' :
-                             'Trzy ikonki naraz —\nrefleks na maksa!'}
+                            {tapRound === 1 ? t.tapStartIntro :
+                             tapRound === 2 ? t.tapStartTwo :
+                             t.tapStartThree}
                           </Text>
                           <Pressable style={styles.arenaStartBtn} onPress={() => beginTapRound(tapRound)}>
-                            <Text style={styles.arenaStartBtnText}>▶ Start rundy {tapRound}</Text>
+                            <Text style={styles.arenaStartBtnText}>▶ {t.start} {t.round.toLowerCase()} {tapRound}</Text>
                           </Pressable>
                         </View>
                       )}
@@ -1670,7 +1808,7 @@ export default function App() {
                     )}
                     {tapPlaying && (
                       <Pressable style={styles.quizSecondaryButton} onPress={startTapGame}>
-                        <Text style={styles.quizSecondaryButtonText}>↺ Restart rundy</Text>
+                        <Text style={styles.quizSecondaryButtonText}>↺ {t.playAgain}</Text>
                       </Pressable>
                     )}
                   </>
@@ -1683,14 +1821,16 @@ export default function App() {
                 {matchGameOver ? (
                   <View style={styles.gameEndCard}>
                     <Text style={styles.gameEndEmoji}>🌟</Text>
-                    <Text style={styles.gameEndTitle}>Gratulacje!</Text>
-                    <Text style={styles.gameEndScore}>Wynik: {matchScore} pkt w 18 ruchach</Text>
+                    <Text style={styles.gameEndTitle}>{t.congratulations}</Text>
+                    <Text style={styles.gameEndScore}>
+                      {t.matchScore.replace('{score}', String(matchScore))}
+                    </Text>
                     <View style={styles.gameEndButtons}>
                       <Pressable style={styles.gameEndBtn} onPress={resetMatch3}>
-                        <Text style={styles.gameEndBtnText}>Zagraj ponownie</Text>
+                        <Text style={styles.gameEndBtnText}>{t.playAgain}</Text>
                       </Pressable>
                       <Pressable style={[styles.gameEndBtn, styles.gameEndBtnSecondary]} onPress={() => setMatchGameOver(false)}>
-                        <Text style={styles.gameEndBtnTextSecondary}>Zamknij</Text>
+                        <Text style={styles.gameEndBtnTextSecondary}>{t.close}</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -1698,7 +1838,7 @@ export default function App() {
                   <>  
                     {/* Score + visual moves counter */}
                     <View style={styles.matchStatsRow}>
-                      <Text style={styles.matchScoreLabel}>Punkty</Text>
+                      <Text style={styles.matchScoreLabel}>{t.matchPoints}</Text>
                       <Text style={styles.matchScoreValue}>{matchScore}</Text>
                     </View>
                     <View style={styles.tapTimerWrap}>
@@ -1712,7 +1852,7 @@ export default function App() {
                           backgroundColor: matchMoves <= 5 ? '#cb3f45' : '#2f8b5f',
                         }]} />
                       </View>
-                      <Text style={styles.sectionDescription}>ruchów pozostało</Text>
+                      <Text style={styles.sectionDescription}>{t.movesRemaining}</Text>
                     </View>
                     {/* Hint button */}
                     <Pressable
@@ -1721,7 +1861,7 @@ export default function App() {
                       disabled={matchHints === 0 || matchGameOver}
                     >
                       <Text style={styles.hintBtnText}>
-                        💡 Podpowiedź ({matchHints})
+                        {t.hint} ({matchHints})
                       </Text>
                     </Pressable>
                     <View style={{ position: 'relative' }}>
@@ -1758,7 +1898,7 @@ export default function App() {
                       />
                     </View>
                     <Pressable style={styles.quizSecondaryButton} onPress={resetMatch3}>
-                      <Text style={styles.quizSecondaryButtonText}>Nowa plansza</Text>
+                      <Text style={styles.quizSecondaryButtonText}>{t.newBoard}</Text>
                     </Pressable>
                   </>
                 )}
@@ -1768,10 +1908,11 @@ export default function App() {
             {fullscreenGame === 'puzzle' && (
               <View style={styles.nextSeasonCard}>
                 <PuzzleGame
+                  language={language}
                   onRoundComplete={() => {
                     setDailyRounds((c) => c + 1);
                     announce('Brawo, puzzle rozwiazane');
-                    showFeedback('Puzzle!');
+                    showFeedback(language === 'en' ? t.puzzleSolvedVoice : 'Puzzle!');
                   }}
                 />
               </View>
@@ -1780,10 +1921,11 @@ export default function App() {
             {fullscreenGame === 'kolorowanki' && (
               <View style={styles.nextSeasonCard}>
                 <ColoringGame
+                  language={language}
                   onRoundComplete={() => {
                     setDailyRounds((c) => c + 1);
                     announce('Swietny rysunek');
-                    showFeedback('Brawo!');
+                    showFeedback(language === 'en' ? `${t.wellDoneVoice}!` : 'Brawo!');
                   }}
                 />
               </View>
@@ -1809,11 +1951,11 @@ export default function App() {
             onPress={() => setMapCleanView((v) => !v)}
           >
             <Text style={[styles.mapViewBtnText, mapCleanView && styles.mapViewBtnTextActive]}>
-              {mapCleanView ? '📍 Pokaż znaczniki' : '🧭 Czysta mapa'}
+              {mapCleanView ? t.showMarkers : t.cleanMap}
             </Text>
           </Pressable>
           <Pressable onPress={() => setShowMapFullscreen(false)} style={styles.fsCloseBtn}>
-            <Text style={styles.fsCloseBtnText}>✕ Zamknij</Text>
+            <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
           </Pressable>
         </View>
         <ScrollView
@@ -1862,14 +2004,16 @@ export default function App() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.parentalGateTitle}>Zanim opuścisz aplikację</Text>
+            <Text style={styles.parentalGateTitle}>{t.parentGateTitle}</Text>
             <Text style={styles.parentalGateText}>
-              Ta funkcja otworzy {pendingDestination}. Wymagana jest zgoda rodzica lub opiekuna.
+              {t.parentGateBody.replace('{destination}', pendingDestination)}
             </Text>
 
-            <Text style={styles.parentalGateLabel}>Zadanie dla rodzica</Text>
+            <Text style={styles.parentalGateLabel}>{t.parentTask}</Text>
             <Text style={styles.parentalGateQuestion}>
-              Ile to jest {parentalGateQuestion.a} + {parentalGateQuestion.b}?
+              {t.parentQuestion
+                .replace('{a}', String(parentalGateQuestion.a))
+                .replace('{b}', String(parentalGateQuestion.b))}
             </Text>
 
             <TextInput
@@ -1877,7 +2021,7 @@ export default function App() {
               onChangeText={setParentalGateAnswer}
               keyboardType="number-pad"
               inputMode="numeric"
-              placeholder="Wpisz odpowiedź"
+              placeholder={t.answerPlaceholder}
               placeholderTextColor="#8f7a5d"
               style={styles.parentalGateInput}
               autoFocus
@@ -1900,7 +2044,7 @@ export default function App() {
                 setParentalGateError('');
               }}
             >
-              <Text style={styles.parentalGateButtonSecondaryText}>Anuluj</Text>
+              <Text style={styles.parentalGateButtonSecondaryText}>{t.cancel}</Text>
             </Pressable>
             <Pressable
               style={[
@@ -1911,7 +2055,7 @@ export default function App() {
               onPress={approveParentalGate}
               disabled={!parentalGateAnswer}
             >
-              <Text style={styles.parentalGateButtonPrimaryText}>Tak, otwórz</Text>
+              <Text style={styles.parentalGateButtonPrimaryText}>{t.openYes}</Text>
             </Pressable>
           </View>
         </View>
@@ -1928,7 +2072,7 @@ export default function App() {
     >
       <View style={styles.characterSelectOverlay}>
         <View style={styles.characterSelectCard}>
-          <Text style={styles.characterSelectTitle}>Wybierz postać</Text>
+          <Text style={styles.characterSelectTitle}>{t.chooseCharacter}</Text>
           <View style={styles.characterSelectRow}>
             <Pressable
               style={styles.characterSelectBtn}
@@ -1966,7 +2110,7 @@ export default function App() {
     >
       <View style={styles.characterSelectOverlay}>
         <View style={styles.characterSelectCard}>
-          <Text style={styles.characterSelectTitle}>Wybierz tryb</Text>
+          <Text style={styles.characterSelectTitle}>{t.chooseMode}</Text>
           <View style={styles.characterSelectRow}>
             <Pressable
               style={styles.characterSelectBtn}
@@ -1977,7 +2121,7 @@ export default function App() {
               }}
             >
               <Text style={styles.characterSelectEmoji}>🛟</Text>
-              <Text style={styles.characterSelectLabel}>Łatwy</Text>
+              <Text style={styles.characterSelectLabel}>{t.easy}</Text>
             </Pressable>
             <Pressable
               style={styles.characterSelectBtn}
@@ -1988,7 +2132,7 @@ export default function App() {
               }}
             >
               <Text style={styles.characterSelectEmoji}>🌊</Text>
-              <Text style={styles.characterSelectLabel}>Normalny</Text>
+              <Text style={styles.characterSelectLabel}>{t.normal}</Text>
             </Pressable>
           </View>
         </View>
@@ -2004,13 +2148,13 @@ export default function App() {
     >
       <View style={styles.characterSelectOverlay}>
         <View style={styles.characterSelectCard}>
-          <Text style={styles.characterSelectTitle}>Legenda punktów</Text>
+          <Text style={styles.characterSelectTitle}>{t.pointsLegend}</Text>
           <View style={styles.swimmingLegendList}>
-            <Text style={styles.swimmingLegendItem}>🍃 Listek: +3 pkt</Text>
-            <Text style={styles.swimmingLegendItem}>🌸 Kwiatek: +5 pkt</Text>
-            <Text style={styles.swimmingLegendItem}>🌰 Szyszka: +4 pkt</Text>
-            <Text style={styles.swimmingLegendItem}>🪵🪨 Ominięta przeszkoda: +1 pkt</Text>
-            <Text style={styles.swimmingLegendItem}>❤️ Serduszko (bardzo rzadkie!): dodatkowe życie</Text>
+            <Text style={styles.swimmingLegendItem}>{t.leafPoints}</Text>
+            <Text style={styles.swimmingLegendItem}>{t.flowerPoints}</Text>
+            <Text style={styles.swimmingLegendItem}>{t.conePoints}</Text>
+            <Text style={styles.swimmingLegendItem}>{t.obstaclePoints}</Text>
+            <Text style={styles.swimmingLegendItem}>{t.heartPoints}</Text>
           </View>
           <Pressable
             style={styles.gameEndBtn}
@@ -2033,12 +2177,13 @@ export default function App() {
       onRequestClose={() => setShowSwimmingGame(false)}
     >
       <SwimmingGame
+        language={language}
         character={swimmingCharacter}
         initialDifficulty={swimmingDifficulty}
         onClose={() => setShowSwimmingGame(false)}
         onRoundComplete={() => {
           setDailyRounds((c) => c + 1);
-          showFeedback('Brawo!');
+          showFeedback(`${t.wellDoneVoice}!`);
         }}
       />
     </Modal>
@@ -2171,6 +2316,21 @@ const styles = StyleSheet.create({
   },
   resetProgressButtonText: {
     color: '#a73535',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  languageButton: {
+    minWidth: 46,
+    alignItems: 'center',
+    backgroundColor: '#edf6e7',
+    borderColor: '#a9cb91',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  languageButtonText: {
+    color: '#355f2a',
     fontWeight: '800',
     fontSize: 13,
   },

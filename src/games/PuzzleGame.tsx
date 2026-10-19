@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { translations, type Language } from '../locales';
 
 const GRID = 3;
 const CELLS = GRID * GRID;
@@ -11,12 +12,6 @@ const DIFFICULTY_EMPTY_COUNT: Record<Difficulty, number> = {
   hard: 1,
   normal: 2,
   easy: 3,
-};
-
-const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  easy: 'Łatwy',
-  normal: 'Średni',
-  hard: 'Trudny',
 };
 
 const PUZZLE_IMAGES = [
@@ -95,10 +90,12 @@ function isSolved(tiles: number[], emptyCount: number): boolean {
 }
 
 type Props = {
+  language: Language;
   onRoundComplete: () => void;
 };
 
-export function PuzzleGame({ onRoundComplete }: Props) {
+export function PuzzleGame({ language, onRoundComplete }: Props) {
+  const t = translations[language];
   const [imageIdx, setImageIdx] = useState(0);
   const [difficulty, setDifficulty] = useState<Difficulty>('hard');
   const [tiles, setTiles] = useState<number[]>(() => scramble(80, DIFFICULTY_EMPTY_COUNT.hard));
@@ -115,6 +112,17 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   const tileSize = containerWidth > 0 ? Math.floor(containerWidth / GRID) : 80;
   const boardSize = tileSize * GRID;
   const currentImage = PUZZLE_IMAGES[imageIdx];
+  const difficultyLabels: Record<Difficulty, string> = {
+    easy: t.easyDifficulty,
+    normal: t.mediumDifficulty,
+    hard: t.hardDifficulty,
+  };
+  const imageLabel = (label: string) => language === 'en'
+    ? label.replace('Bruno i Fela', 'Bruno and Fela')
+      .replace('Fela i Bruno', 'Fela and Bruno')
+      .replace('Wielki Dab', 'Great Oak')
+      .replace('Wakacje', 'Summer holidays')
+    : label;
 
   // Compute cover-mode crop offsets based on the actual image aspect ratio
   // so tiles show the correct portions without distortion.
@@ -213,7 +221,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   if (setupStep === 'difficulty') {
     return (
       <View style={s.wrap}>
-        <Text style={s.title}>Wybierz poziom trudności</Text>
+        <Text style={s.title}>{t.puzzleDifficulty}</Text>
         <View style={s.choiceGrid}>
           {(Object.keys(DIFFICULTY_EMPTY_COUNT) as Difficulty[]).map((level) => (
             <Pressable
@@ -222,7 +230,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
               style={[s.choiceBtn, difficulty === level && s.pickerBtnActive]}
             >
               <Text style={[s.choiceBtnText, difficulty === level && s.pickerBtnTextActive]}>
-                {DIFFICULTY_LABELS[level]}
+                {difficultyLabels[level]}
               </Text>
             </Pressable>
           ))}
@@ -234,7 +242,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
   if (setupStep === 'image') {
     return (
       <View style={s.wrap}>
-        <Text style={s.title}>Wybierz rysunek do puzzli</Text>
+        <Text style={s.title}>{t.choosePuzzleImage}</Text>
         <View style={s.imageGrid}>
           {PUZZLE_IMAGES.map((img, i) => (
             <Pressable
@@ -244,7 +252,7 @@ export function PuzzleGame({ onRoundComplete }: Props) {
             >
               <Image source={img.source} style={s.imageChoicePreview} resizeMode="cover" />
               <Text style={[s.pickerBtnText, imageIdx === i && s.pickerBtnTextActive]}>
-                {img.label}
+                {imageLabel(img.label)}
               </Text>
             </Pressable>
           ))}
@@ -257,12 +265,12 @@ export function PuzzleGame({ onRoundComplete }: Props) {
     <View style={s.wrap}>
       <Text style={s.title}>
         {selectedTileIdx !== null
-          ? 'Wybrano kafelek — tapnij podświetlone puste miejsce, aby go przesunąć!'
-          : 'Układaj kafelki, aż obrazek będzie kompletny!'}
+          ? t.puzzleSelectedTile
+          : t.puzzleInstructions}
       </Text>
       <View style={s.statsRow}>
-        <Text style={s.stats}>Ruchy: {moveCount}</Text>
-        <Text style={s.stats}>{currentImage.label} · {DIFFICULTY_LABELS[difficulty]}</Text>
+        <Text style={s.stats}>{t.moves}: {moveCount}</Text>
+        <Text style={s.stats}>{imageLabel(currentImage.label)} · {difficultyLabels[difficulty]}</Text>
       </View>
 
       {/* Board */}
@@ -322,10 +330,10 @@ export function PuzzleGame({ onRoundComplete }: Props) {
         {solved && (
           <View style={s.solvedOverlay}>
             <Text style={s.solvedEmoji}>🎉</Text>
-            <Text style={s.solvedTitle}>Brawo!</Text>
-            <Text style={s.solvedSub}>Puzzle ułożone za {moveCount} ruchów!</Text>
+            <Text style={s.solvedTitle}>{t.bravo}</Text>
+            <Text style={s.solvedSub}>{t.puzzleSolved.replace('{moves}', String(moveCount))}</Text>
             <Pressable style={s.solvedBtn} onPress={() => resetPuzzle()}>
-              <Text style={s.solvedBtnText}>Nowe układanie</Text>
+              <Text style={s.solvedBtnText}>{t.newPuzzle}</Text>
             </Pressable>
           </View>
         )}
@@ -333,10 +341,10 @@ export function PuzzleGame({ onRoundComplete }: Props) {
 
       <View style={s.actionsRow}>
         <Pressable style={s.resetBtn} onPress={() => setSetupStep('image')}>
-          <Text style={s.resetBtnText}>Zmień Puzzle</Text>
+          <Text style={s.resetBtnText}>{t.changePuzzle}</Text>
         </Pressable>
         <Pressable style={s.resetBtn} onPress={() => setSetupStep('difficulty')}>
-          <Text style={s.resetBtnText}>Zmień Poziom</Text>
+          <Text style={s.resetBtnText}>{t.changeLevel}</Text>
         </Pressable>
       </View>
     </View>

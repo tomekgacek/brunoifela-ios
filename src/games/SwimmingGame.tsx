@@ -9,6 +9,7 @@ import {
   Animated,
 } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { translations, type Language } from '../locales';
 
 const riverVideo = require('../../assets/game/rzeka_plynie.mp4');
 const riverImage = require('../../assets/game/rzeka.png');
@@ -105,6 +106,7 @@ const ScorePopup: React.FC<{ item: ScorePopupItem; onDone: (id: number) => void 
 };
 
 export interface SwimmingGameProps {
+  language: Language;
   character: 'bruno' | 'fela';
   initialDifficulty?: Difficulty;
   onClose: () => void;
@@ -112,11 +114,13 @@ export interface SwimmingGameProps {
 }
 
 export const SwimmingGame: React.FC<SwimmingGameProps> = ({
+  language,
   character,
   initialDifficulty = 'normal',
   onClose,
   onRoundComplete,
 }) => {
+  const t = translations[language];
   const { width: W, height: H } = useWindowDimensions();
 
   const [playerLane, setPlayerLane] = useState(1);
@@ -397,16 +401,16 @@ export const SwimmingGame: React.FC<SwimmingGameProps> = ({
         <View style={styles.gameOverOverlay}>
           <View style={styles.gameOverCard}>
             <Image source={riverImage} style={styles.gameOverRiverImage} resizeMode="cover" />
-            <Text style={styles.gameOverTitle}>Koniec gry!</Text>
-            <Text style={styles.gameOverScore}>Wynik: {score} pkt (ominięte przeszkody + zebrane skarby)</Text>
+            <Text style={styles.gameOverTitle}>{t.gameOver}</Text>
+            <Text style={styles.gameOverScore}>{t.swimmingScore.replace('{score}', String(score))}</Text>
             {score > 0 && score >= bestScore && (
-              <Text style={styles.gameOverRecord}>🏆 Nowy rekord!</Text>
+              <Text style={styles.gameOverRecord}>{t.newRecord}</Text>
             )}
             <Pressable style={styles.gameOverBtn} onPress={restartGame}>
-              <Text style={styles.gameOverBtnText}>Zagraj ponownie</Text>
+              <Text style={styles.gameOverBtnText}>{t.playAgain}</Text>
             </Pressable>
             <Pressable style={[styles.gameOverBtn, styles.gameOverBtnSecondary]} onPress={onClose}>
-              <Text style={styles.gameOverBtnTextSecondary}>Wróć do menu</Text>
+              <Text style={styles.gameOverBtnTextSecondary}>{t.backToMenu}</Text>
             </Pressable>
           </View>
         </View>

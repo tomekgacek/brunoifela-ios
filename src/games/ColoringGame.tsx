@@ -13,6 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as MediaLibrary from 'expo-media-library';
 import { captureRef } from 'react-native-view-shot';
+import { translations, type Language } from '../locales';
 
 const PALETTE = [
   '#e53935', '#fb8c00', '#fdd835', '#43a047',
@@ -45,11 +46,10 @@ type Dot = { id: number; x: number; y: number; color: string; radius: number };
 
 type BrushSize = 'thin' | 'normal' | 'thick';
 const BRUSH_SIZE_FACTORS: Record<BrushSize, number> = { thin: 0.55, normal: 1, thick: 1.7 };
-const BRUSH_SIZE_LABELS: Record<BrushSize, string> = { thin: 'Cienki', normal: 'Średni', thick: 'Gruby' };
+type Props = { language: Language; onRoundComplete: () => void };
 
-type Props = { onRoundComplete: () => void };
-
-export function ColoringGame({ onRoundComplete }: Props) {
+export function ColoringGame({ language, onRoundComplete }: Props) {
+  const t = translations[language];
   const { width: screenW } = useWindowDimensions();
   const [imageIdx, setImageIdx] = useState(0);
   const [activeColor, setActiveColor] = useState(PALETTE[0]);
@@ -58,6 +58,14 @@ export function ColoringGame({ onRoundComplete }: Props) {
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectingImage, setSelectingImage] = useState(true);
+  const brushSizeLabels: Record<BrushSize, string> = {
+    thin: t.thin,
+    normal: t.mediumBrush,
+    thick: t.thick,
+  };
+  const imageLabel = (label: string) => language === 'en'
+    ? label.replace('Bruno i Fela', 'Bruno and Fela').replace('Wakacje', 'Summer holidays')
+    : label;
 
   const containerWidth = Math.max(100, screenW - 84);
   const gridH = containerWidth * CANVAS_ASPECT;
@@ -151,12 +159,12 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
     if (!requested.canAskAgain) {
       Alert.alert(
-        'Brak dostępu do Zdjęć',
-        'Aby zapisywać rysunki, włącz dostęp do Zdjęć w ustawieniach iOS.',
+        t.photoPermissionTitle,
+        t.photoPermissionMessage,
         [
-          { text: 'Anuluj', style: 'cancel' },
+          { text: t.cancel, style: 'cancel' },
           {
-            text: 'Ustawienia',
+            text: t.settings,
             onPress: () => {
               void Linking.openSettings();
             },
@@ -200,7 +208,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
       setSaved(true);
       onRoundComplete();
     } catch {
-      Alert.alert('Nie udało się zapisać', 'Wystąpił problem podczas zapisu rysunku do Zdjęć. Spróbuj ponownie.');
+      Alert.alert(t.saveErrorTitle, t.saveErrorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -214,12 +222,12 @@ export function ColoringGame({ onRoundComplete }: Props) {
   if (selectingImage) {
     return (
       <View style={s.wrap}>
-        <Text style={s.title}>Wybierz rysunek do kolorowania</Text>
+        <Text style={s.title}>{t.chooseColoringImage}</Text>
         <View style={s.imageGrid}>
           {COLORING_IMAGES.map((img, i) => (
             <Pressable key={img.id} onPress={() => chooseColoringImage(i)} style={s.imageChoice}>
               <Image source={img.source} style={s.imageChoicePreview} resizeMode="cover" />
-              <Text style={s.pickerBtnText}>{img.label}</Text>
+              <Text style={s.pickerBtnText}>{imageLabel(img.label)}</Text>
             </Pressable>
           ))}
         </View>
@@ -229,7 +237,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Text style={s.stats}>Pomalowane: {pct}%{saved ? '  ✅ Zapisano!' : ''}</Text>
+      <Text style={s.stats}>{t.painted}: {pct}%{saved ? `  ${t.saved}` : ''}</Text>
 
       {/* Color palette + eraser */}
       <View style={s.palette}>
@@ -239,7 +247,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
         ))}
         <Pressable onPress={() => setActiveColor(ERASER)}
           style={[s.swatch, s.eraserSwatch, activeColor === ERASER && s.swatchActive]}>
-          <Text style={s.eraserText}>G</Text>
+          <Text style={s.eraserText}>{language === 'en' ? 'E' : 'G'}</Text>
         </Pressable>
       </View>
 
@@ -258,7 +266,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
               backgroundColor: brushSize === size ? '#fff' : '#7a542f',
             }]} />
             <Text style={[s.brushSizeText, brushSize === size && s.brushSizeTextActive]}>
-              {BRUSH_SIZE_LABELS[size]}
+              {brushSizeLabels[size]}
             </Text>
           </Pressable>
         ))}
@@ -272,7 +280,7 @@ export function ColoringGame({ onRoundComplete }: Props) {
           borderColor: '#aaa',
         }]} />
         <Text style={s.selectedColorLabel}>
-          {activeColor === ERASER ? 'Gumka' : 'Wybrany kolor'}
+          {activeColor === ERASER ? t.eraser : t.selectedColor}
         </Text>
       </View>
 
@@ -305,19 +313,19 @@ export function ColoringGame({ onRoundComplete }: Props) {
 
       <View style={s.actions}>
         <Pressable style={[s.doneBtn, isSaving && s.doneBtnDisabled]} onPress={handleSave} disabled={isSaving}>
-          <Text style={s.doneBtnText}>{isSaving ? 'Zapisywanie...' : 'Zapisz'}</Text>
+          <Text style={s.doneBtnText}>{isSaving ? t.saving : t.save}</Text>
         </Pressable>
         <Pressable style={s.resetBtn} onPress={() => setSelectingImage(true)}>
-          <Text style={s.resetBtnText}>Zmień</Text>
+          <Text style={s.resetBtnText}>{t.change}</Text>
         </Pressable>
         <Pressable style={s.resetBtn} onPress={() => resetColoring()}>
-          <Text style={s.resetBtnText}>Wyczyść</Text>
+          <Text style={s.resetBtnText}>{t.clear}</Text>
         </Pressable>
       </View>
 
       {saved && (
         <View style={s.savedBanner}>
-          <Text style={s.savedBannerText}>🎨 Rysunek zapisany do Zdjęć.</Text>
+          <Text style={s.savedBannerText}>{t.coloringSaved}</Text>
           <Pressable onPress={() => setSaved(false)} style={s.savedBannerClose}>
             <Text style={s.savedBannerCloseText}>×</Text>
           </Pressable>
