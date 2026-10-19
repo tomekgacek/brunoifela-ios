@@ -35,6 +35,8 @@ import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './
 import { PuzzleGame } from './src/games/PuzzleGame';
 import { ColoringGame } from './src/games/ColoringGame';
 import { SwimmingGame } from './src/games/SwimmingGame';
+import { MahjongGame } from './src/games/MahjongGame';
+import { FindCharacterGame } from './src/games/FindCharacterGame';
 import { translations, type Language } from './src/locales';
 
 const mapImage = require('./assets/game/mapa.jpeg');
@@ -94,7 +96,7 @@ type TapTargetItem = { id: number; x: number; y: number; char: TapChar };
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
-type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie';
+type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter';
 
 // Hit-areas as fractions of Bruno_Fela_2.png (1117x1408).
 // Tuned to the four speech-bubble buttons: Odcinki (top-left), Quiz (top-right),
@@ -1641,6 +1643,8 @@ export default function App() {
                   { id: 'match3', label: t.tiles, icon: '💎', hint: t.tilesHint },
                   { id: 'puzzle', label: t.puzzle, icon: '🧩', hint: t.puzzleHint },
                   { id: 'kolorowanki', label: t.coloring, icon: '🎨', hint: t.coloringHint },
+                  { id: 'mahjong', label: t.mahjong, icon: '🀄', hint: t.mahjongHint },
+                  { id: 'findCharacter', label: t.findCharacter, icon: '🔎', hint: t.findCharacterHint },
                   {
                     id: 'pływanie',
                     label: t.swimRiver,
@@ -1696,7 +1700,9 @@ export default function App() {
               {fullscreenGame === 'zrecznosciowa' ? t.catchBrunoFela :
                fullscreenGame === 'match3' ? t.tiles :
                fullscreenGame === 'puzzle' ? t.puzzle :
-               fullscreenGame === 'pływanie' ? t.swimRiver : t.coloring}
+               fullscreenGame === 'pływanie' ? t.swimRiver :
+               fullscreenGame === 'mahjong' ? t.mahjong :
+               fullscreenGame === 'findCharacter' ? t.findCharacter : t.coloring}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
               <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
@@ -1926,6 +1932,32 @@ export default function App() {
                     setDailyRounds((c) => c + 1);
                     announce('Swietny rysunek');
                     showFeedback(language === 'en' ? `${t.wellDoneVoice}!` : 'Brawo!');
+                  }}
+                />
+              </View>
+            )}
+
+            {fullscreenGame === 'mahjong' && (
+              <View style={styles.nextSeasonCard}>
+                <MahjongGame
+                  language={language}
+                  onRoundComplete={() => {
+                    setDailyRounds((current) => current + 1);
+                    announce('Brawo');
+                    showFeedback(`${t.mahjongWon}`);
+                  }}
+                />
+              </View>
+            )}
+
+            {fullscreenGame === 'findCharacter' && (
+              <View style={styles.nextSeasonCard}>
+                <FindCharacterGame
+                  language={language}
+                  onRoundComplete={() => {
+                    setDailyRounds((current) => current + 1);
+                    announce('Brawo');
+                    showFeedback(t.findCharacterComplete);
                   }}
                 />
               </View>
