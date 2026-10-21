@@ -45,7 +45,12 @@ const mapaS03Image = require('./assets/game/mapa_s03.png');
 const brunoImage = require('./assets/game/bruno.jpeg');
 const felaImage = require('./assets/game/fela.jpeg');
 const splashImg = require('./assets/game/landing-page/Bruno_Fela_1.png');
+const splashImgEn = require('./assets/game/landing-page/Bruno_Fela_1_en.png');
 const menuImg = require('./assets/game/landing-page/Bruno_Fela_2.png');
+const menuImgEn = require('./assets/game/landing-page/Bruno_Fela_2_en.png');
+const mapImageEn = require('./assets/game/mapa_en.png');
+const mapaS02ImageEn = require('./assets/game/mapa_s02_en.png');
+const mapaS03ImageEn = require('./assets/game/mapa_s03_en.png');
 const dabBg = require('./assets/game/Dab.jpeg');
 const riverThumbImg = require('./assets/game/rzeka.png');
 const brunoFaceImg = require('./assets/game/landing-page/Bruno.png');
@@ -1080,7 +1085,7 @@ export default function App() {
         >
           <Animated.View style={{ flex: 1, opacity: splashOpacity }}>
             <Image
-              source={splashImg}
+              source={language === 'en' ? splashImgEn : splashImg}
               style={{ width: screenW, height: screenH }}
               resizeMode="cover"
             />
@@ -1103,7 +1108,7 @@ export default function App() {
       <Animated.View style={{ flex: 1, backgroundColor: '#2d5a1a', opacity: menuOpacity }}>
         <StatusBar style="light" />
         <Image
-          source={menuImg}
+          source={language === 'en' ? menuImgEn : menuImg}
           style={{ width: screenW, height: screenH }}
           resizeMode="contain"
         />
@@ -1123,23 +1128,7 @@ export default function App() {
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-            >
-              {language === 'en' && (
-                <Text
-                  style={{
-                    overflow: 'hidden',
-                    borderRadius: 10,
-                    backgroundColor: 'rgba(35,73,26,0.94)',
-                    color: '#fff',
-                    fontWeight: '800',
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                  }}
-                >
-                  {getMenuLabel(targetScreen)}
-                </Text>
-              )}
-            </Pressable>
+            />
           ))}
         </View>
         <Pressable
@@ -1202,7 +1191,7 @@ export default function App() {
                 onPress={() => setQuizSeason(1)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 1 && styles.mapSeasonBtnTextActive]}>
-                  {t.season1.split(' — ')[0]} {t.season} 1
+                  🌳 {t.season} 1
                 </Text>
               </Pressable>
               <Pressable
@@ -1210,7 +1199,7 @@ export default function App() {
                 onPress={() => setQuizSeason(2)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 2 && styles.mapSeasonBtnTextActive]}>
-                  {t.season2.split(' — ')[0]} {t.season} 2
+                  ☀️ {t.season} 2
                 </Text>
               </Pressable>
               <Pressable
@@ -1218,7 +1207,7 @@ export default function App() {
                 onPress={() => setQuizSeason(3)}
               >
                 <Text style={[styles.mapSeasonBtnText, quizSeason === 3 && styles.mapSeasonBtnTextActive]}>
-                  {t.season3.split(' — ')[0]} {t.season} 3
+                  🍂 {t.season} 3
                 </Text>
               </Pressable>
             </View>
@@ -1263,7 +1252,7 @@ export default function App() {
                 }}
               >
                 <Text style={[styles.mapSeasonBtnText, mapSeason === 1 && styles.mapSeasonBtnTextActive]}>
-                  🌳 Sezon 1
+                  🌳 {t.season} 1
                 </Text>
               </Pressable>
               <Pressable
@@ -1274,7 +1263,7 @@ export default function App() {
                 }}
               >
                 <Text style={[styles.mapSeasonBtnText, mapSeason === 2 && styles.mapSeasonBtnTextActive]}>
-                  ☀️ Sezon 2
+                  ☀️ {t.season} 2
                 </Text>
               </Pressable>
               <Pressable
@@ -1285,7 +1274,7 @@ export default function App() {
                 }}
               >
                 <Text style={[styles.mapSeasonBtnText, mapSeason === 3 && styles.mapSeasonBtnTextActive]}>
-                  🍂 Sezon 3
+                  🍂 {t.season} 3
                 </Text>
               </Pressable>
             </View>
@@ -1306,7 +1295,11 @@ export default function App() {
             </View>
 
             <ImageBackground
-              source={mapSeason === 1 ? mapImage : mapSeason === 2 ? mapaS02Image : mapaS03Image}
+              source={mapSeason === 1
+                ? language === 'en' ? mapImageEn : mapImage
+                : mapSeason === 2
+                  ? language === 'en' ? mapaS02ImageEn : mapaS02Image
+                  : language === 'en' ? mapaS03ImageEn : mapaS03Image}
               style={[styles.map, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
               imageStyle={styles.mapImageStyle}
             >
@@ -1996,7 +1989,11 @@ export default function App() {
           minimumZoomScale={1}
         >
           <ImageBackground
-            source={mapSeason === 1 ? mapImage : mapSeason === 2 ? mapaS02Image : mapaS03Image}
+            source={mapSeason === 1
+              ? language === 'en' ? mapImageEn : mapImage
+              : mapSeason === 2
+                ? language === 'en' ? mapaS02ImageEn : mapaS02Image
+                : language === 'en' ? mapaS03ImageEn : mapaS03Image}
             style={[styles.mapFullscreenImage, { aspectRatio: mapSeason === 1 ? 1632 / 1006 : 1536 / 1024 }]}
             imageStyle={{ resizeMode: 'contain' }}
           >
