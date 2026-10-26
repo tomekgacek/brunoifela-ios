@@ -10,7 +10,12 @@ type SceneItem = {
 };
 
 const COLUMNS = 8;
-const TOTAL_ROUNDS = 5;
+type Difficulty = 'easy' | 'normal' | 'hard';
+const DIFFICULTY_CONFIG: Record<Difficulty, { rounds: number; baseRows: number }> = {
+  easy: { rounds: 3, baseRows: 4 },
+  normal: { rounds: 5, baseRows: 6 },
+  hard: { rounds: 7, baseRows: 8 },
+};
 const FOREST_DECORATIONS = ['🌳', '🌲', '🌿', '🍄', '🌼', '🪵', '🪨', '🍃', '🌸', '🦋', '🌱', '☀️'];
 
 const CHARACTER_ASSETS = {
@@ -18,8 +23,8 @@ const CHARACTER_ASSETS = {
   fela: require('../../assets/game/landing-page/Fela.png'),
 } as const;
 
-function createScene(target: Character, round: number): SceneItem[] {
-  const total = COLUMNS * (7 + round);
+function createScene(target: Character, round: number, difficulty: Difficulty): SceneItem[] {
+  const total = COLUMNS * (DIFFICULTY_CONFIG[difficulty].baseRows + round);
   const items: SceneItem[] = Array.from({ length: total }, (_, id) => {
     const roll = Math.random();
     if (roll < 0.58) return { id, kind: 'decoration', decoration: FOREST_DECORATIONS[Math.floor(Math.random() * FOREST_DECORATIONS.length)] };
@@ -40,12 +45,14 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
   const t = translations[language];
   const { width: screenWidth } = useWindowDimensions();
   const [target, setTarget] = useState<Character>('bruno');
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [round, setRound] = useState(1);
-  const [scene, setScene] = useState<SceneItem[]>(() => createScene('bruno', 1));
+  const [scene, setScene] = useState<SceneItem[]>(() => createScene('bruno', 1, 'normal'));
   const [foundId, setFoundId] = useState<number | null>(null);
   const [gameComplete, setGameComplete] = useState(false);
   const [mistakes, setMistakes] = useState(0);
   const [message, setMessage] = useState(t.findCharacterPrompt);
+  const totalRounds = DIFFICULTY_CONFIG[difficulty].rounds;
 
   const tileSize = Math.max(28, Math.min(40, Math.floor((screenWidth - 68 - (COLUMNS - 1) * 4) / COLUMNS)));
   const targetImage = target === 'bruno' ? CHARACTER_ASSETS.bruno : CHARACTER_ASSETS.fela;
@@ -60,10 +67,11 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
     return rows;
   }, [scene]);
 
-  const startGame = (character: Character) => {
+  const startGame = (character: Character, nextDifficulty: Difficulty = difficulty) => {
     setTarget(character);
+    setDifficulty(nextDifficulty);
     setRound(1);
-    setScene(createScene(character, 1));
+    setScene(createScene(character, 1, nextDifficulty));
     setFoundId(null);
     setGameComplete(false);
     setMistakes(0);
@@ -79,7 +87,7 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
     }
 
     setFoundId(item.id);
-    if (round === TOTAL_ROUNDS) {
+    if (round === totalRounds) {
       setGameComplete(true);
       setMessage(t.findCharacterComplete);
       onRoundComplete();
@@ -91,7 +99,7 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
   const nextRound = () => {
     const next = round + 1;
     setRound(next);
-    setScene(createScene(target, next));
+    setScene(createScene(target, next, difficulty));
     setFoundId(null);
     setMessage(t.findCharacterPrompt);
   };
@@ -128,8 +136,27 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
         </Pressable>
       </View>
 
+      <View style={styles.difficultyPicker}>
+        <Text style={styles.difficultyLabel}>{t.gameDifficulty}</Text>
+        <View style={styles.difficultyOptions}>
+          {(['easy', 'normal', 'hard'] as const).map((level) => (
+            <Pressable
+              key={level}
+              accessibilityRole="button"
+              accessibilityState={{ selected: difficulty === level }}
+              onPress={() => startGame(target, level)}
+              style={[styles.difficultyButton, difficulty === level && styles.difficultyButtonActive]}
+            >
+              <Text style={[styles.difficultyButtonText, difficulty === level && styles.difficultyButtonTextActive]}>
+                {level === 'easy' ? t.easyDifficulty : level === 'normal' ? t.mediumDifficulty : t.hardDifficulty}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       <View style={styles.statsRow}>
-        <Text style={styles.stats}>{t.findCharacterRound}: {round}/{TOTAL_ROUNDS}</Text>
+        <Text style={styles.stats}>{t.findCharacterRound}: {round}/{totalRounds}</Text>
         <Text style={styles.stats}>{t.findCharacterMistakes}: {mistakes}</Text>
       </View>
 
@@ -258,6 +285,43 @@ const styles = StyleSheet.create({
   characterButtonText: {
     color: '#4e3b25',
     fontWeight: '800',
+  },
+  difficultyPicker: {
+    alignSelf: 'stretch',
+    gap: 6,
+  },
+  difficultyLabel: {
+    color: '#644d33',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  difficultyOptions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  difficultyButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#fff4d7',
+    borderColor: '#efd8a2',
+    borderRadius: 9,
+    borderWidth: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 8,
+  },
+  difficultyButtonActive: {
+    backgroundColor: '#2f8b5f',
+    borderColor: '#2f8b5f',
+  },
+  difficultyButtonText: {
+    color: '#5f4729',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  difficultyButtonTextActive: {
+    color: '#fff',
   },
   statsRow: {
     alignSelf: 'stretch',

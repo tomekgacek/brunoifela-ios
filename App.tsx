@@ -37,6 +37,7 @@ import { ColoringGame } from './src/games/ColoringGame';
 import { SwimmingGame } from './src/games/SwimmingGame';
 import { MahjongGame } from './src/games/MahjongGame';
 import { FindCharacterGame } from './src/games/FindCharacterGame';
+import { SnakeGame } from './src/games/SnakeGame';
 import { translations, type Language } from './src/locales';
 
 const mapImage = require('./assets/game/mapa.jpeg');
@@ -101,7 +102,7 @@ type TapTargetItem = { id: number; x: number; y: number; char: TapChar };
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
-type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter';
+type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter' | 'snake';
 
 // Hit-areas as fractions of Bruno_Fela_2.png (1117x1408).
 // Tuned to the four speech-bubble buttons: Odcinki (top-left), Quiz (top-right),
@@ -1638,6 +1639,7 @@ export default function App() {
                   { id: 'kolorowanki', label: t.coloring, icon: '🎨', hint: t.coloringHint },
                   { id: 'mahjong', label: t.mahjong, icon: '🀄', hint: t.mahjongHint },
                   { id: 'findCharacter', label: t.findCharacter, icon: '🔎', hint: t.findCharacterHint },
+                  { id: 'snake', label: t.snake, icon: '🐍', hint: t.snakeHint },
                   {
                     id: 'pływanie',
                     label: t.swimRiver,
@@ -1695,7 +1697,8 @@ export default function App() {
                fullscreenGame === 'puzzle' ? t.puzzle :
                fullscreenGame === 'pływanie' ? t.swimRiver :
                fullscreenGame === 'mahjong' ? t.mahjong :
-               fullscreenGame === 'findCharacter' ? t.findCharacter : t.coloring}
+               fullscreenGame === 'findCharacter' ? t.findCharacter :
+               fullscreenGame === 'snake' ? t.snake : t.coloring}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
               <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
@@ -1956,6 +1959,17 @@ export default function App() {
               </View>
             )}
 
+            {fullscreenGame === 'snake' && (
+              <View style={styles.nextSeasonCard}>
+                <SnakeGame
+                  language={language}
+                  onRoundComplete={() => {
+                    setDailyRounds((current) => current + 1);
+                    announce('Koniec rundy');
+                  }}
+                />
+              </View>
+            )}
 
           </ScrollView>
         </SafeAreaView>

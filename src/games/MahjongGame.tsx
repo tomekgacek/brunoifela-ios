@@ -13,7 +13,7 @@ type Tile = Slot & {
   kind: number;
 };
 
-const PAIR_COUNT = 16;
+const TILE_KIND_COUNT = 16;
 const GAP = 4;
 const SLOTS: Slot[] = [
   ...Array.from({ length: 4 }, (_, row) =>
@@ -28,6 +28,30 @@ const SLOTS: Slot[] = [
     })),
   ).flat(),
 ];
+const EASY_SLOTS: Slot[] = Array.from({ length: 4 }, (_, row) =>
+  Array.from({ length: 4 }, (_, col) => ({ id: row * 4 + col, row, col, layer: 0 })),
+).flat();
+const HARD_SLOTS: Slot[] = [
+  ...Array.from({ length: 6 }, (_, row) =>
+    Array.from({ length: 6 }, (_, col) => ({ id: row * 6 + col, row, col, layer: 0 })),
+  ).flat(),
+  ...Array.from({ length: 2 }, (_, row) =>
+    Array.from({ length: 2 }, (_, col) => ({
+      id: 36 + row * 2 + col,
+      row: row + 2,
+      col: col + 2,
+      layer: 1,
+    })),
+  ).flat(),
+];
+
+type Difficulty = 'easy' | 'normal' | 'hard';
+
+const DIFFICULTY_SLOTS: Record<Difficulty, Slot[]> = {
+  easy: EASY_SLOTS,
+  normal: SLOTS,
+  hard: HARD_SLOTS,
+};
 
 const TILE_KINDS = [
   { icon: '🌰', character: 'bruno' },
@@ -94,22 +118,41 @@ function getFreeTiles<T extends Slot>(tiles: T[], remainingIds: number[]): T[] {
 }
 
 function dealTiles(slots: Slot[]): Tile[] {
-  const unassigned = new Set(slots.map((slot) => slot.id));
+  const remainingIds = new Set(slots.map((slot) => slot.id));
   const kindById = new Map<number, number>();
-  let kind = 0;
+  const failedStates = new Set<string>();
 
-  while (unassigned.size > 0) {
-    const free = shuffle(getFreeTiles(slots, [...unassigned]));
-    if (free.length < 2) {
-      throw new Error('Unable to deal a solvable Mahjong board.');
+  const assignPairs = (remaining: Set<number>, kind: number): boolean => {
+    if (remaining.size === 0) return true;
+
+    const state = [...remaining].sort((a, b) => a - b).join(',');
+    if (failedStates.has(state)) return false;
+
+    const free = shuffle(getFreeTiles(slots, [...remaining]));
+    for (let first = 0; first < free.length; first += 1) {
+      for (let second = first + 1; second < free.length; second += 1) {
+        const firstId = free[first].id;
+        const secondId = free[second].id;
+        remaining.delete(firstId);
+        remaining.delete(secondId);
+        kindById.set(firstId, kind);
+        kindById.set(secondId, kind);
+
+        if (assignPairs(remaining, (kind + 1) % TILE_KIND_COUNT)) return true;
+
+        remaining.add(firstId);
+        remaining.add(secondId);
+        kindById.delete(firstId);
+        kindById.delete(secondId);
+      }
     }
 
-    const pair = free.slice(0, 2);
-    pair.forEach((slot) => {
-      kindById.set(slot.id, kind);
-      unassigned.delete(slot.id);
-    });
-    kind = (kind + 1) % PAIR_COUNT;
+    failedStates.add(state);
+    return false;
+  };
+
+  if (!assignPairs(remainingIds, 0)) {
+    throw new Error('Unable to deal a solvable Mahjong board.');
   }
 
   return shuffle(slots.map((slot) => ({ ...slot, kind: kindById.get(slot.id)! })));
@@ -123,11 +166,16 @@ type Props = {
 export function MahjongGame({ language, onRoundComplete }: Props) {
   const t = translations[language];
   const { width: screenWidth } = useWindowDimensions();
-  const tileWidth = Math.min(54, Math.floor((screenWidth - 64 - GAP * 5) / 6));
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const slots = DIFFICULTY_SLOTS[difficulty];
+  const columnCount = Math.max(...slots.map((slot) => slot.col)) + 1;
+  const rowCount = Math.max(...slots.map((slot) => slot.row)) + 1;
+  const pairCount = slots.length / 2;
+  const tileWidth = Math.min(54, Math.floor((screenWidth - 64 - GAP * (columnCount - 1)) / columnCount));
   const tileHeight = Math.round(tileWidth * 1.18);
-  const boardWidth = tileWidth * 6 + GAP * 5;
-  const boardHeight = tileHeight * 4 + GAP * 3 + Math.round(tileWidth * 0.18);
-  const [tiles, setTiles] = useState<Tile[]>(() => dealTiles(SLOTS));
+  const boardWidth = tileWidth * columnCount + GAP * (columnCount - 1) + Math.round(tileWidth * 0.18);
+  const boardHeight = tileHeight * rowCount + GAP * (rowCount - 1) + Math.round(tileWidth * 0.18);
+  const [tiles, setTiles] = useState<Tile[]>(() => dealTiles(DIFFICULTY_SLOTS.normal));
   const [remainingIds, setRemainingIds] = useState<number[]>(() => SLOTS.map((slot) => slot.id));
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [hintIds, setHintIds] = useState<number[]>([]);
@@ -142,9 +190,11 @@ export function MahjongGame({ language, onRoundComplete }: Props) {
     team: require('../../assets/game/fela_i_bruno.png'),
   };
 
-  const newDeal = (slots: Slot[]) => {
-    setTiles(dealTiles(slots));
-    setRemainingIds(slots.map((slot) => slot.id));
+  const newDeal = (nextDifficulty: Difficulty = difficulty) => {
+    const nextSlots = DIFFICULTY_SLOTS[nextDifficulty];
+    setDifficulty(nextDifficulty);
+    setTiles(dealTiles(nextSlots));
+    setRemainingIds(nextSlots.map((slot) => slot.id));
     setSelectedId(null);
     setHintIds([]);
     setGameWon(false);
@@ -221,9 +271,27 @@ export function MahjongGame({ language, onRoundComplete }: Props) {
 
   return (
     <View style={styles.wrap}>
+      <View style={styles.difficultyPicker}>
+        <Text style={styles.difficultyLabel}>{t.gameDifficulty}</Text>
+        <View style={styles.difficultyOptions}>
+          {(['easy', 'normal', 'hard'] as const).map((level) => (
+            <Pressable
+              key={level}
+              accessibilityRole="button"
+              accessibilityState={{ selected: difficulty === level }}
+              onPress={() => newDeal(level)}
+              style={[styles.difficultyButton, difficulty === level && styles.difficultyButtonActive]}
+            >
+              <Text style={[styles.difficultyButtonText, difficulty === level && styles.difficultyButtonTextActive]}>
+                {level === 'easy' ? t.easyDifficulty : level === 'normal' ? t.mediumDifficulty : t.hardDifficulty}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       <Text style={styles.instructions}>{message}</Text>
       <View style={styles.statsRow}>
-        <Text style={styles.stats}>{t.mahjongPairs}: {remainingIds.length / 2}/{PAIR_COUNT}</Text>
+        <Text style={styles.stats}>{t.mahjongPairs}: {remainingIds.length / 2}/{pairCount}</Text>
         <Text style={styles.stats}>{t.mahjongFree}: {freeTiles.length}</Text>
       </View>
 
@@ -267,7 +335,7 @@ export function MahjongGame({ language, onRoundComplete }: Props) {
       {gameWon ? (
         <View style={styles.winCard}>
           <Text style={styles.winTitle}>{t.mahjongWon}</Text>
-          <Pressable style={styles.primaryButton} onPress={() => newDeal(SLOTS)}>
+          <Pressable style={styles.primaryButton} onPress={() => newDeal()}>
             <Text style={styles.buttonText}>{t.mahjongPlayAgain}</Text>
           </Pressable>
         </View>
@@ -279,7 +347,7 @@ export function MahjongGame({ language, onRoundComplete }: Props) {
           <Pressable style={styles.secondaryButton} onPress={shuffleRemaining}>
             <Text style={styles.secondaryButtonText}>{t.mahjongShuffle}</Text>
           </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => newDeal(SLOTS)}>
+          <Pressable style={styles.secondaryButton} onPress={() => newDeal()}>
             <Text style={styles.secondaryButtonText}>{t.mahjongNewGame}</Text>
           </Pressable>
         </View>
@@ -293,6 +361,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingVertical: 4,
+  },
+  difficultyPicker: {
+    width: '100%',
+    gap: 6,
+  },
+  difficultyLabel: {
+    color: '#644d33',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  difficultyOptions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  difficultyButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#fff4d7',
+    borderColor: '#efd8a2',
+    borderRadius: 9,
+    borderWidth: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 8,
+  },
+  difficultyButtonActive: {
+    backgroundColor: '#2f8b5f',
+    borderColor: '#2f8b5f',
+  },
+  difficultyButtonText: {
+    color: '#5f4729',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  difficultyButtonTextActive: {
+    color: '#fff',
   },
   instructions: {
     width: '100%',
