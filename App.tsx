@@ -38,6 +38,7 @@ import { SwimmingGame } from './src/games/SwimmingGame';
 import { MahjongGame } from './src/games/MahjongGame';
 import { FindCharacterGame } from './src/games/FindCharacterGame';
 import { SnakeGame } from './src/games/SnakeGame';
+import { TetrisGame } from './src/games/TetrisGame';
 import { translations, type Language } from './src/locales';
 
 const mapImage = require('./assets/game/mapa.jpeg');
@@ -102,7 +103,7 @@ type TapTargetItem = { id: number; x: number; y: number; char: TapChar };
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
-type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter' | 'snake';
+type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter' | 'snake' | 'tetris';
 
 // Hit-areas as fractions of Bruno_Fela_2.png (1117x1408).
 // Tuned to the four speech-bubble buttons: Odcinki (top-left), Quiz (top-right),
@@ -1648,6 +1649,7 @@ export default function App() {
                   { id: 'mahjong', label: t.mahjong, icon: '🀄', hint: t.mahjongHint },
                   { id: 'findCharacter', label: t.findCharacter, icon: '🔎', hint: t.findCharacterHint },
                   { id: 'snake', label: t.snake, icon: '🐍', hint: t.snakeHint },
+                  { id: 'tetris', label: t.tetris, icon: '🧱', hint: t.tetrisHint },
                   {
                     id: 'pływanie',
                     label: t.swimRiver,
@@ -1706,7 +1708,8 @@ export default function App() {
                fullscreenGame === 'pływanie' ? t.swimRiver :
                fullscreenGame === 'mahjong' ? t.mahjong :
                fullscreenGame === 'findCharacter' ? t.findCharacter :
-               fullscreenGame === 'snake' ? t.snake : t.coloring}
+               fullscreenGame === 'snake' ? t.snake :
+               fullscreenGame === 'tetris' ? t.tetris : t.coloring}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
               <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
@@ -1974,6 +1977,19 @@ export default function App() {
                   onRoundComplete={() => {
                     setDailyRounds((current) => current + 1);
                     announce('Koniec rundy');
+                  }}
+                />
+              </View>
+            )}
+
+            {fullscreenGame === 'tetris' && (
+              <View style={styles.nextSeasonCard}>
+                <TetrisGame
+                  language={language}
+                  onRoundComplete={(score) => {
+                    setDailyRounds((current) => current + 1);
+                    announce('Koniec rundy');
+                    showFeedback(`${t.tetrisGameOver}: ${score}`);
                   }}
                 />
               </View>
