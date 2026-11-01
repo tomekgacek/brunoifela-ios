@@ -31,6 +31,8 @@ const pl = {
   englishEpisodeTitle: 'Odcinek',
   englishAudioComingSoon: 'English audio coming soon',
   englishAudioDetails: 'This story is currently available in Polish only.',
+  englishEpisodeAvailable: 'Ten odcinek jest dostępny po angielsku.',
+  englishPlaylistAvailable: 'Pozostałe odcinki są dostępne na angielskiej playliście sezonu 1.',
   quizTitle: 'Mini quiz',
   quizDescription: '3 pytania na odcinek. Najlepszy wynik zapisuje się jako gwiazdki. Odcinki odblokowują się po 2/3.',
   quizComingSoonTitle: 'English quiz coming soon',

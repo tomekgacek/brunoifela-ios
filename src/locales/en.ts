@@ -33,6 +33,8 @@ const en: { [Key in keyof typeof pl]: string } = {
   englishEpisodeTitle: 'Episode',
   englishAudioComingSoon: 'English audio coming soon',
   englishAudioDetails: 'This story is currently available in Polish only.',
+  englishEpisodeAvailable: 'This episode is available in English.',
+  englishPlaylistAvailable: 'More episodes are available in the English Season 1 playlist.',
   quizTitle: 'Mini quiz',
   quizDescription: '3 questions per episode. Your best score is saved as stars. Unlock episodes by scoring 2/3.',
   quizComingSoonTitle: 'English quiz coming soon',

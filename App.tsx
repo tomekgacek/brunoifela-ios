@@ -123,21 +123,26 @@ const STORAGE_KEYS = {
 };
 
 type EpisodeMediaLinks = {
-  youtube?: string;
-  spotify?: string;
+  youtube: string;
+  spotify: string;
+  englishYoutube?: string;
+  englishSpotify?: string;
 };
 
-const SEASON_MEDIA_PLACEHOLDER_LINKS: Required<EpisodeMediaLinks> = {
+const SEASON_MEDIA_PLACEHOLDER_LINKS: Pick<EpisodeMediaLinks, 'youtube' | 'spotify'> = {
   youtube: 'https://www.youtube.com/@BrunoiFela/playlists',
   spotify: 'https://open.spotify.com/show/1WQ1pwKDz9UGFtUFvLhrj3',
 };
 
 const SEASON3_YOUTUBE_PLAYLIST = 'https://www.youtube.com/playlist?list=PLVoVzVJeaj-M';
+const SEASON1_ENGLISH_YOUTUBE_PLAYLIST = 'https://www.youtube.com/playlist?list=PLQyyQvlPW_9A';
 
 const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
   S01E01: {
     youtube: 'https://www.youtube.com/watch?v=a_uwRIT-CIc&list=PLRZpIqDCRXC0&index=2',
     spotify: 'https://open.spotify.com/episode/1UgJcmMFWfDE9L1nRTzhXz',
+    englishYoutube: 'https://youtu.be/AkJ7CNF2QfM?si=CBSuR8iOW2sBAwo_',
+    englishSpotify: 'https://spotifycreators-web.app.link/e/1lQ1ZqA3C7b',
   },
   S01E02: {
     youtube: 'https://www.youtube.com/watch?v=JvaN64XcHhg&list=PLRZpIqDCRXC0&index=3',
@@ -257,11 +262,19 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
   },
 };
 
-function getEpisodeMediaLinks(episodeCode: string): Required<EpisodeMediaLinks> {
+function getEpisodeMediaLinks(episodeCode: string): EpisodeMediaLinks {
   return {
     ...SEASON_MEDIA_PLACEHOLDER_LINKS,
     ...(episodeCode.startsWith('S03') ? { youtube: SEASON3_YOUTUBE_PLAYLIST } : {}),
     ...EPISODE_MEDIA_LINKS[episodeCode],
+  };
+}
+
+function getEnglishEpisodeMediaLinks(episodeCode: string) {
+  const episodeLinks = EPISODE_MEDIA_LINKS[episodeCode];
+  return {
+    youtube: episodeLinks?.englishYoutube ?? SEASON1_ENGLISH_YOUTUBE_PLAYLIST,
+    spotify: episodeLinks?.englishSpotify,
   };
 }
 
@@ -324,6 +337,7 @@ export default function App() {
   const splashOpacity = useRef(new Animated.Value(0)).current;
   const menuOpacity = useRef(new Animated.Value(0)).current;
   const innerOpacity = useRef(new Animated.Value(0)).current;
+  const mainScrollRef = useRef<ScrollView>(null);
 
   const [selectedLocationId, setSelectedLocationId] = useState<string>(seasonMapData[0].id);
   const [selectedEpisodeCode, setSelectedEpisodeCode] = useState<string>('S01E01');
@@ -912,6 +926,7 @@ export default function App() {
       return;
     }
     setSelectedEpisodeCode(nextQuizEpisode.code);
+    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const goToPreviousQuizEpisode = () => {
@@ -919,6 +934,7 @@ export default function App() {
       return;
     }
     setSelectedEpisodeCode(prevQuizEpisode.code);
+    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const submitQuiz = () => {
@@ -1158,7 +1174,7 @@ export default function App() {
     <ImageBackground source={dabBg} style={{ flex: 1 }} resizeMode="cover">
     <SafeAreaView style={styles.safeAreaTransparent}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={mainScrollRef} contentContainerStyle={styles.scrollContent}>
 
         <View style={styles.screenTopBar}>
           <Pressable onPress={goToMenu} style={styles.backBtn}>
@@ -1408,15 +1424,36 @@ export default function App() {
                     <Text style={styles.missionTitle}>
                       {language === 'en' ? `${t.englishEpisodeTitle} ${episode.code}` : `${episode.code} — ${episode.title}`}
                     </Text>
-                    <Text style={styles.missionText}>
-                      {language === 'en' ? t.englishAudioDetails : episode.description}
-                    </Text>
                     {language === 'en' ? (
-                      <View style={styles.episodeMediaRow}>
-                        <View style={styles.episodeMediaBtn}>
-                          <Text style={styles.episodeMediaBtnText}>{t.englishAudioComingSoon}</Text>
-                        </View>
-                      </View>
+                      (() => {
+                        const englishLinks = getEnglishEpisodeMediaLinks(episode.code);
+                        const englishSpotifyLink = englishLinks.spotify;
+                        return (
+                          <>
+                            <Text style={styles.missionText}>
+                              {episode.code === 'S01E01' ? t.englishEpisodeAvailable : t.englishPlaylistAvailable}
+                            </Text>
+                            <View style={styles.episodeMediaRow}>
+                              <Pressable
+                                style={styles.episodeMediaBtn}
+                                onPress={() => requestExternalAccess(englishLinks.youtube, 'YouTube')}
+                              >
+                                <Image source={youtubeLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                                <Text style={styles.episodeMediaBtnText}>{t.watchYouTube}</Text>
+                              </Pressable>
+                              {englishSpotifyLink ? (
+                                <Pressable
+                                  style={styles.episodeMediaBtn}
+                                  onPress={() => requestExternalAccess(englishSpotifyLink, 'Spotify')}
+                                >
+                                  <Image source={spotifyLogoImg} style={styles.episodeMediaBtnLogo} resizeMode="contain" />
+                                  <Text style={styles.episodeMediaBtnText}>{t.listenSpotify}</Text>
+                                </Pressable>
+                              ) : null}
+                            </View>
+                          </>
+                        );
+                      })()
                     ) : <View style={styles.episodeMediaRow}>
                       <Pressable
                         style={styles.episodeMediaBtn}
