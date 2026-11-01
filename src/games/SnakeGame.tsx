@@ -4,12 +4,14 @@ import { translations, type Language } from '../locales';
 
 const COLUMNS = 15;
 const ROWS = 18;
-const TICK_MS = 170;
-const INITIAL_SNAKE: Position[] = [
-  { x: 7, y: 9 },
-  { x: 6, y: 9 },
-  { x: 5, y: 9 },
-];
+type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
+type Character = 'bruno' | 'fela';
+const DIFFICULTY_SPEED: Record<Difficulty, number> = {
+  easy: 240,
+  normal: 170,
+  hard: 115,
+  expert: 85,
+};
 
 type Position = { x: number; y: number };
 type Direction = 'up' | 'down' | 'left' | 'right';
@@ -29,7 +31,16 @@ const OPPOSITE_DIRECTIONS: Record<Direction, Direction> = {
   right: 'left',
 };
 
-const BRUNO_IMAGE = require('../../assets/game/landing-page/Bruno.png');
+const CHARACTER_IMAGES: Record<Character, number> = {
+  bruno: require('../../assets/game/landing-page/Bruno.png'),
+  fela: require('../../assets/game/landing-page/Fela.png'),
+};
+
+function createSnake(): Position[] {
+  const y = Math.floor(ROWS / 2);
+  const x = Math.floor(COLUMNS / 2);
+  return [{ x, y }, { x: x - 1, y }, { x: x - 2, y }];
+}
 
 function createFood(snake: Position[]): Position | null {
   const occupied = new Set(snake.map(({ x, y }) => `${x},${y}`));
@@ -50,12 +61,15 @@ type Props = {
 export function SnakeGame({ language, onRoundComplete }: Props) {
   const t = translations[language];
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const cellSize = Math.max(12, Math.min(24, Math.floor((screenWidth - 48) / COLUMNS), Math.floor((screenHeight - 350) / ROWS)));
+  const cellSize = Math.max(12, Math.min(24, Math.floor((screenWidth - 64) / COLUMNS), Math.floor((screenHeight - 390) / ROWS)));
   const boardWidth = cellSize * COLUMNS;
   const boardHeight = cellSize * ROWS;
 
-  const [snake, setSnake] = useState<Position[]>(INITIAL_SNAKE);
-  const [food, setFood] = useState<Position | null>(() => createFood(INITIAL_SNAKE));
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [character, setCharacter] = useState<Character>('bruno');
+  const initialSnake = createSnake();
+  const [snake, setSnake] = useState<Position[]>(initialSnake);
+  const [food, setFood] = useState<Position | null>(() => createFood(initialSnake));
   const [direction, setDirection] = useState<Direction>('right');
   const [status, setStatus] = useState<GameStatus>('ready');
   const [score, setScore] = useState(0);
@@ -72,7 +86,7 @@ export function SnakeGame({ language, onRoundComplete }: Props) {
   };
 
   const startGame = () => {
-    const nextSnake = [...INITIAL_SNAKE];
+    const nextSnake = createSnake();
     const nextFood = createFood(nextSnake);
     snakeRef.current = nextSnake;
     foodRef.current = nextFood;
@@ -129,10 +143,10 @@ export function SnakeGame({ language, onRoundComplete }: Props) {
           onRoundComplete(nextScore);
         }
       }
-    }, TICK_MS);
+    }, DIFFICULTY_SPEED[difficulty]);
 
     return () => clearInterval(timer);
-  }, [onRoundComplete, status]);
+  }, [difficulty, onRoundComplete, status]);
 
   const controlButtons: { direction: Direction; label: string; icon: string }[] = [
     { direction: 'up', label: t.snakeUp, icon: '▲' },
@@ -145,12 +159,55 @@ export function SnakeGame({ language, onRoundComplete }: Props) {
     <View style={styles.wrap}>
       <Text style={styles.instructions}>{t.snakeInstructions}</Text>
 
+      <View style={styles.pickers}>
+        <Text style={styles.pickerTitle}>{t.gameDifficulty}</Text>
+        <View style={styles.pickerRow}>
+          {([
+            { value: 'easy', label: t.easy },
+            { value: 'normal', label: t.normal },
+            { value: 'hard', label: t.hardDifficulty },
+            { value: 'expert', label: t.expertDifficulty },
+          ] as { value: Difficulty; label: string }[]).map(({ value, label }) => (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: difficulty === value }}
+              onPress={() => {
+                setDifficulty(value);
+                startGame();
+              }}
+              style={[styles.pickerButton, difficulty === value && styles.pickerButtonActive]}
+            >
+              <Text style={[styles.pickerButtonText, difficulty === value && styles.pickerButtonTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.pickerTitle}>{t.snakeCharacter}</Text>
+        <View style={styles.pickerRow}>
+          {(['bruno', 'fela'] as Character[]).map((nextCharacter) => (
+            <Pressable
+              key={nextCharacter}
+              accessibilityRole="button"
+              accessibilityState={{ selected: character === nextCharacter }}
+              onPress={() => setCharacter(nextCharacter)}
+              style={[styles.characterButton, character === nextCharacter && styles.pickerButtonActive]}
+            >
+              <Image source={CHARACTER_IMAGES[nextCharacter]} style={styles.characterImage} />
+              <Text style={[styles.pickerButtonText, character === nextCharacter && styles.pickerButtonTextActive]}>
+                {nextCharacter === 'bruno' ? t.bruno : t.fela}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       <View style={styles.statsRow}>
         <Text style={styles.stats}>{t.score}: {score}</Text>
         <Text style={styles.stats}>{t.record}: {bestScore}</Text>
       </View>
 
-      <View style={[styles.board, { width: boardWidth, height: boardHeight }]}>
+      <View style={[styles.boardWall, { width: boardWidth + 10, height: boardHeight + 10 }]}>
+       <View style={[styles.board, { width: boardWidth, height: boardHeight }]}>
         {food && (
           <Text style={[styles.food, {
             left: food.x * cellSize,
@@ -173,12 +230,13 @@ export function SnakeGame({ language, onRoundComplete }: Props) {
             }]}
           >
             {index === 0 ? (
-              <Image source={BRUNO_IMAGE} style={styles.snakeHead} resizeMode="cover" />
+              <Image source={CHARACTER_IMAGES[character]} style={styles.snakeHead} resizeMode="cover" />
             ) : (
               <Text style={{ fontSize: cellSize * 0.65 }}>{index % 2 === 0 ? '🍃' : '🌿'}</Text>
             )}
           </View>
         ))}
+        </View>
       </View>
 
       {status === 'ready' && <Text style={styles.status}>{t.snakeReady}</Text>}
@@ -227,6 +285,67 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 4,
   },
+  pickers: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pickerTitle: {
+    color: '#644d33',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pickerButton: {
+    minWidth: 76,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 5,
+    backgroundColor: '#fff4d7',
+    borderColor: '#efd8a2',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pickerButtonActive: {
+    backgroundColor: '#2f8b5f',
+    borderColor: '#2f8b5f',
+  },
+  pickerButtonText: {
+    color: '#644d33',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  pickerButtonTextActive: {
+    color: '#fff',
+  },
+  characterButton: {
+    minWidth: 104,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    backgroundColor: '#fff4d7',
+    borderColor: '#efd8a2',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  characterImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
   instructions: {
     color: '#5f4729',
     fontWeight: '700',
@@ -242,13 +361,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
+  boardWall: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#66834f',
+    borderColor: '#3e5e3a',
+    borderRadius: 10,
+    borderWidth: 3,
+    padding: 2,
+  },
   board: {
     position: 'relative',
     overflow: 'hidden',
     backgroundColor: '#d5e6bd',
-    borderColor: '#66834f',
-    borderRadius: 12,
-    borderWidth: 3,
   },
   segment: {
     position: 'absolute',

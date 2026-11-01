@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { translations, type Language } from '../locales';
 
 const COLUMNS = 10;
@@ -7,8 +7,8 @@ const ROWS = 18;
 const EMPTY_BOARD: Board = Array.from({ length: ROWS }, () => Array(COLUMNS).fill(null));
 
 type Board = (string | null)[][];
-type Difficulty = 'easy' | 'normal' | 'hard';
-type GameStatus = 'ready' | 'playing' | 'paused' | 'over';
+type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
+type GameStatus = 'ready' | 'playing' | 'paused' | 'clearing' | 'over';
 type Piece = {
   shape: number[][];
   color: string;
@@ -24,6 +24,7 @@ type GameState = {
   score: number;
   lines: number;
   level: number;
+  clearingRows: number[];
 };
 type Props = {
   language: Language;
@@ -44,6 +45,7 @@ const DIFFICULTY_SPEED: Record<Difficulty, number> = {
   easy: 850,
   normal: 600,
   hard: 400,
+  expert: 260,
 };
 
 function randomPiece(): Piece {
@@ -62,6 +64,7 @@ function createGame(status: GameStatus = 'ready'): GameState {
     score: 0,
     lines: 0,
     level: 1,
+    clearingRows: [],
   };
 }
 
@@ -84,16 +87,10 @@ function rotatePiece(piece: Piece): Piece {
   return { ...piece, shape };
 }
 
-function lockPiece(game: GameState, piece: Piece, x: number, y: number): GameState {
-  const board = game.board.map((row) => [...row]);
-  piece.shape.forEach((row, shapeY) => {
-    row.forEach((cell, shapeX) => {
-      if (cell && y + shapeY >= 0) board[y + shapeY][x + shapeX] = piece.color;
-    });
-  });
-
-  const remainingRows = board.filter((row) => row.some((cell) => cell === null));
-  const clearedLines = ROWS - remainingRows.length;
+function finishLineClear(game: GameState): GameState {
+  const clearedLines = game.clearingRows.length;
+  const clearedRowSet = new Set(game.clearingRows);
+  const remainingRows = game.board.filter((_, index) => !clearedRowSet.has(index));
   const nextBoard = [
     ...Array.from({ length: clearedLines }, () => Array(COLUMNS).fill(null)),
     ...remainingRows,
@@ -110,11 +107,38 @@ function lockPiece(game: GameState, piece: Piece, x: number, y: number): GameSta
     nextPiece: randomPiece(),
     x: spawnX,
     y: 0,
-    status: isOver ? 'over' : game.status,
+    status: isOver ? 'over' : 'playing',
     score: game.score + [0, 100, 300, 500, 800][clearedLines] * game.level,
     lines: nextLines,
     level: Math.floor(nextLines / 10) + 1,
+    clearingRows: [],
   };
+}
+
+function lockPiece(game: GameState, piece: Piece, x: number, y: number): GameState {
+  const board = game.board.map((row) => [...row]);
+  piece.shape.forEach((row, shapeY) => {
+    row.forEach((cell, shapeX) => {
+      if (cell && y + shapeY >= 0) board[y + shapeY][x + shapeX] = piece.color;
+    });
+  });
+
+  const clearingRows = board.reduce<number[]>((rows, row, rowIndex) => {
+    if (row.every((cell) => cell !== null)) rows.push(rowIndex);
+    return rows;
+  }, []);
+
+  if (clearingRows.length > 0) {
+    return {
+      ...game,
+      board,
+      piece: game.nextPiece,
+      status: 'clearing',
+      clearingRows,
+    };
+  }
+
+  return finishLineClear({ ...game, board, clearingRows: [] });
 }
 
 function advance(game: GameState): GameState {
@@ -132,6 +156,31 @@ export function TetrisGame({ language, onRoundComplete }: Props) {
   const [game, setGame] = useState<GameState>(() => createGame());
   const [bestScore, setBestScore] = useState(0);
   const reportedGameOver = useRef(false);
+  const flashOpacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    if (game.status !== 'clearing') {
+      flashOpacity.setValue(0.3);
+      return undefined;
+    }
+
+    const flash = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flashOpacity, { toValue: 1, duration: 110, useNativeDriver: true }),
+        Animated.timing(flashOpacity, { toValue: 0.3, duration: 110, useNativeDriver: true }),
+      ]),
+      { iterations: 3 },
+    );
+    flash.start();
+    const timer = setTimeout(() => {
+      setGame((current) => current.status === 'clearing' ? finishLineClear(current) : current);
+    }, 660);
+
+    return () => {
+      flash.stop();
+      clearTimeout(timer);
+    };
+  }, [flashOpacity, game.status]);
 
   useEffect(() => {
     if (game.status !== 'playing') return undefined;
@@ -194,20 +243,23 @@ export function TetrisGame({ language, onRoundComplete }: Props) {
   };
 
   const visibleBoard = game.board.map((row) => [...row]);
-  game.piece.shape.forEach((row, shapeY) => {
-    row.forEach((cell, shapeX) => {
-      const x = game.x + shapeX;
-      const y = game.y + shapeY;
-      if (cell && y >= 0 && y < ROWS && x >= 0 && x < COLUMNS) {
-        visibleBoard[y][x] = game.piece.color;
-      }
+  if (game.status !== 'clearing') {
+    game.piece.shape.forEach((row, shapeY) => {
+      row.forEach((cell, shapeX) => {
+        const x = game.x + shapeX;
+        const y = game.y + shapeY;
+        if (cell && y >= 0 && y < ROWS && x >= 0 && x < COLUMNS) {
+          visibleBoard[y][x] = game.piece.color;
+        }
+      });
     });
-  });
+  }
 
   const difficultyOptions: { value: Difficulty; label: string }[] = [
     { value: 'easy', label: t.easy },
     { value: 'normal', label: t.normal },
     { value: 'hard', label: t.hardDifficulty },
+    { value: 'expert', label: t.expertDifficulty },
   ];
 
   return (
@@ -246,16 +298,20 @@ export function TetrisGame({ language, onRoundComplete }: Props) {
         <View style={[styles.board, { width: cellSize * COLUMNS, height: cellSize * ROWS }]}>
           {visibleBoard.map((row, rowIndex) => (
             <View key={`row-${rowIndex}`} style={styles.boardRow}>
-              {row.map((color, columnIndex) => (
-                <View
+              {row.map((color, columnIndex) => {
+                const flashing = game.clearingRows.includes(rowIndex);
+                return (
+                <Animated.View
                   key={`cell-${rowIndex}-${columnIndex}`}
                   style={[
                     styles.cell,
                     { width: cellSize, height: cellSize },
-                    color ? { backgroundColor: color, borderColor: '#ffffff88' } : undefined,
+                    color ? { backgroundColor: flashing ? '#fff7a8' : color, borderColor: '#ffffff88' } : undefined,
+                    flashing ? { opacity: flashOpacity } : undefined,
                   ]}
                 />
-              ))}
+                );
+              })}
             </View>
           ))}
         </View>
@@ -369,6 +425,7 @@ const styles = StyleSheet.create({
   },
   difficultyOptions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
   },

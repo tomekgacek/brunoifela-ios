@@ -7,6 +7,7 @@ export type QuizQuestion = {
 
 export type EpisodeQuiz = {
   episodeCode: string;
+  title?: string;
   questions: QuizQuestion[];
 };
 

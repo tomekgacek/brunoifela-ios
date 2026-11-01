@@ -31,6 +31,7 @@ import {
   type Episode,
 } from './src/data/season1';
 import { allQuizzes } from './src/data/quiz';
+import { season1QuizzesEn } from './src/data/quiz.en';
 import { Board, CellPos, createInitialBoard, findHint, swapAndResolve } from './src/games/match3';
 import { PuzzleGame } from './src/games/PuzzleGame';
 import { ColoringGame } from './src/games/ColoringGame';
@@ -39,6 +40,8 @@ import { MahjongGame } from './src/games/MahjongGame';
 import { FindCharacterGame } from './src/games/FindCharacterGame';
 import { SnakeGame } from './src/games/SnakeGame';
 import { TetrisGame } from './src/games/TetrisGame';
+import { MinesweeperGame } from './src/games/MinesweeperGame';
+import { PinballGame } from './src/games/PinballGame';
 import { translations, type Language } from './src/locales';
 
 const mapImage = require('./assets/game/mapa.jpeg');
@@ -103,7 +106,7 @@ type TapTargetItem = { id: number; x: number; y: number; char: TapChar };
 
 type InnerScreen = 'mapa' | 'odcinki' | 'quiz' | 'gry';
 type Screen = 'splash' | 'menu' | InnerScreen;
-type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter' | 'snake' | 'tetris';
+type GameTab = 'zrecznosciowa' | 'match3' | 'puzzle' | 'kolorowanki' | 'pływanie' | 'mahjong' | 'findCharacter' | 'snake' | 'tetris' | 'minesweeper' | 'pinball';
 
 // Hit-areas as fractions of Bruno_Fela_2.png (1117x1408).
 // Tuned to the four speech-bubble buttons: Odcinki (top-left), Quiz (top-right),
@@ -353,6 +356,11 @@ export default function App() {
   const [quizFeedback, setQuizFeedback] = useState<Record<string, string>>({});
   const [shuffleTick, setShuffleTick] = useState(0);
 
+  useEffect(() => {
+    setQuizAnswers({});
+    setQuizFeedback({});
+  }, [language]);
+
   const [tapScore, setTapScore] = useState(0);
   const [tapTimeLeft, setTapTimeLeft] = useState(TAP_ROUND_DURATION);
   const [tapPlaying, setTapPlaying] = useState(false);
@@ -451,7 +459,8 @@ export default function App() {
 
   const mapEvents = selectedLocation.events;
 
-  const selectedQuiz = allQuizzes.find((quiz) => quiz.episodeCode === selectedEpisodeCode);
+  const quizCollection = language === 'en' && quizSeason === 1 ? season1QuizzesEn : allQuizzes;
+  const selectedQuiz = quizCollection.find((quiz) => quiz.episodeCode === selectedEpisodeCode);
 
   const shuffledQuizQuestions = useMemo(() => {
     if (!selectedQuiz) {
@@ -471,7 +480,7 @@ export default function App() {
         correctIndex: shuffled.findIndex((entry) => entry.isCorrect),
       };
     });
-  }, [selectedQuiz?.episodeCode, shuffleTick]);
+  }, [language, selectedQuiz?.episodeCode, shuffleTick]);
 
   const totalStars = allEpisodes.reduce((sum, episode) => sum + (quizScores[episode.code] ?? 0), 0);
   const totalStarsCap = allEpisodes.length * 3;
@@ -1585,7 +1594,7 @@ export default function App() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>{t.quizTitle}</Text>
             <Text style={styles.sectionDescription}>{t.quizDescription}</Text>
-            {language === 'en' ? (
+            {language === 'en' && quizSeason !== 1 ? (
               <View style={styles.nextSeasonCard}>
                 <Text style={styles.nextSeasonTitle}>{t.quizComingSoonTitle}</Text>
                 <Text style={styles.nextSeasonText}>{t.quizComingSoonDetails}</Text>
@@ -1610,7 +1619,9 @@ export default function App() {
                       quizScores[selectedEpisode.code] ?? 0,
                     )})
                   </Text>
-                  <Text style={styles.nextSeasonText}>{t.episodeTitle}: {selectedEpisode.title}</Text>
+                  <Text style={styles.nextSeasonText}>
+                    {t.episodeTitle}: {selectedQuiz.title ?? selectedEpisode.title}
+                  </Text>
                   {quizFeedback[selectedEpisode.code] ? (
                     <Text style={styles.quizFeedbackText}>{quizFeedback[selectedEpisode.code]}</Text>
                   ) : null}
@@ -1687,6 +1698,8 @@ export default function App() {
                   { id: 'findCharacter', label: t.findCharacter, icon: '🔎', hint: t.findCharacterHint },
                   { id: 'snake', label: t.snake, icon: '🐍', hint: t.snakeHint },
                   { id: 'tetris', label: t.tetris, icon: '🧱', hint: t.tetrisHint },
+                  { id: 'minesweeper', label: t.minesweeper, icon: '🚩', hint: t.minesweeperHint },
+                  { id: 'pinball', label: t.pinball, icon: '🎱', hint: t.pinballHint },
                   {
                     id: 'pływanie',
                     label: t.swimRiver,
@@ -1746,7 +1759,9 @@ export default function App() {
                fullscreenGame === 'mahjong' ? t.mahjong :
                fullscreenGame === 'findCharacter' ? t.findCharacter :
                fullscreenGame === 'snake' ? t.snake :
-               fullscreenGame === 'tetris' ? t.tetris : t.coloring}
+               fullscreenGame === 'tetris' ? t.tetris :
+               fullscreenGame === 'minesweeper' ? t.minesweeper :
+               fullscreenGame === 'pinball' ? t.pinball : t.coloring}
             </Text>
             <Pressable onPress={() => setFullscreenGame(null)} style={styles.fsCloseBtn}>
               <Text style={styles.fsCloseBtnText}>✕ {t.close}</Text>
@@ -2027,6 +2042,31 @@ export default function App() {
                     setDailyRounds((current) => current + 1);
                     announce('Koniec rundy');
                     showFeedback(`${t.tetrisGameOver}: ${score}`);
+                  }}
+                />
+              </View>
+            )}
+
+            {fullscreenGame === 'minesweeper' && (
+              <View style={styles.nextSeasonCard}>
+                <MinesweeperGame
+                  language={language}
+                  onRoundComplete={(score) => {
+                    setDailyRounds((current) => current + 1);
+                    showFeedback(`${t.minesweeperWon} ${score}`);
+                  }}
+                />
+              </View>
+            )}
+
+            {fullscreenGame === 'pinball' && (
+              <View style={styles.nextSeasonCard}>
+                <PinballGame
+                  language={language}
+                  onRoundComplete={(score) => {
+                    setDailyRounds((current) => current + 1);
+                    announce('Koniec rundy');
+                    showFeedback(`${t.pinballGameOver}: ${score}`);
                   }}
                 />
               </View>
