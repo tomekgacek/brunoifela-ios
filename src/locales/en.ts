@@ -149,6 +149,7 @@ const en: { [Key in keyof typeof pl]: string } = {
   pinballLives: 'Balls',
   pinballStart: 'Start',
   pinballPause: 'Pause',
+  pinballTilt: 'Tilt',
   tetris: 'Bruno and Fela Tetris',
   tetrisHint: 'Stack blocks and clear rows across four difficulties',
   tetrisInstructions: 'Move and rotate blocks to complete rows. The higher your level, the faster they fall!',

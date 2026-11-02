@@ -147,6 +147,7 @@ const pl = {
   pinballLives: 'Piłki',
   pinballStart: 'Start',
   pinballPause: 'Pauza',
+  pinballTilt: 'Wstrząśnij stołem',
   tetris: 'Tetris Bruna i Feli',
   tetrisHint: 'Układaj klocki i czyść rzędy na czterech poziomach',
   tetrisInstructions: 'Przesuwaj i obracaj klocki, aby ułożyć pełne rzędy. Im wyższy poziom, tym szybciej spadają!',

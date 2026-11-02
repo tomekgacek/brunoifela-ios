@@ -53,7 +53,7 @@ const RIGHT_FELA = require('../../assets/game/landing-page/Fela.png');
 const FOREST_PINBALL = require('../../assets/game/ForestPinball.png');
 
 function createEntryBall(entrySpeed: number): Ball {
-  return { x: 50, y: 5, vx: 0, vy: entrySpeed };
+  return { x: 60, y: 5, vx: 0.55, vy: entrySpeed };
 }
 
 function ScorePopup({ item, onDone }: { item: ScorePopupItem; onDone: (id: number) => void }) {
@@ -104,6 +104,8 @@ export function PinballGame({ language, onRoundComplete }: Props) {
   const [bestScore, setBestScore] = useState(0);
   const [scorePopups, setScorePopups] = useState<ScorePopupItem[]>([]);
   const scorePopupIdRef = useRef(0);
+  const tiltImpulseRef = useRef(0);
+  const tableShake = useRef(new Animated.Value(0)).current;
   const flippersRef = useRef(flippers);
   const difficultyRef = useRef(difficulty);
   const gameRef = useRef(game);
@@ -142,6 +144,11 @@ export function PinballGame({ language, onRoundComplete }: Props) {
 
       const config = DIFFICULTY_CONFIG[difficultyRef.current];
       let { x, y, vx, vy } = current.ball;
+      if (tiltImpulseRef.current !== 0) {
+        vx += tiltImpulseRef.current;
+        vy = Math.max(-8, vy - 0.8);
+        tiltImpulseRef.current = 0;
+      }
       vy = Math.min(7.5, vy + config.gravity);
       x += vx;
       y += vy;
@@ -154,12 +161,13 @@ export function PinballGame({ language, onRoundComplete }: Props) {
       if (x > 92) { x = 92; vx = -Math.abs(vx) * 0.92; }
       if (y < 3) { y = 3; vy = Math.abs(vy) * 0.9; }
 
-      FOREST_TARGETS.forEach((target, index) => {
+      for (let index = 0; index < FOREST_TARGETS.length; index += 1) {
+        const target = FOREST_TARGETS[index];
         const dx = (x - target.x) * boardWidth / 100;
         const dy = (y - target.y) * boardHeight / 100;
         const distance = Math.hypot(dx, dy);
         const collisionRadius = target.radius * boardWidth / 100 + BALL_RADIUS;
-        if (distance >= collisionRadius) return;
+        if (distance >= collisionRadius) continue;
         const speed = Math.hypot(vx * boardWidth / 100, vy * boardHeight / 100);
         const nx = distance > 0 ? dx / distance : speed > 0 ? -(vx * boardWidth / 100) / speed : 0;
         const ny = distance > 0 ? dy / distance : speed > 0 ? -(vy * boardHeight / 100) / speed : -1;
@@ -168,15 +176,17 @@ export function PinballGame({ language, onRoundComplete }: Props) {
           vx -= 1.8 * velocityAlongNormal * nx * 100 / boardWidth;
           vy -= 1.8 * velocityAlongNormal * ny * 100 / boardHeight;
         }
-        x = target.x + nx * collisionRadius * 100 / boardWidth;
-        y = target.y + ny * collisionRadius * 100 / boardHeight;
+        const separatedRadius = collisionRadius + 2;
+        x = target.x + nx * separatedRadius * 100 / boardWidth;
+        y = target.y + ny * separatedRadius * 100 / boardHeight;
         litTargets[index] = true;
         if ((cooldown[index] ?? 0) === 0) {
           score += target.points;
           newPopups.push({ id: scorePopupIdRef.current++, x: target.x, y: target.y, points: target.points });
           cooldown[index] = 12;
         }
-      });
+        break;
+      }
 
       const railBounds = getRailBounds(y);
       const ballRadiusX = BALL_RADIUS * 100 / boardWidth;
@@ -270,6 +280,22 @@ export function PinballGame({ language, onRoundComplete }: Props) {
     setScorePopups((popups) => popups.filter((popup) => popup.id !== id));
   }, []);
 
+  const triggerTilt = () => {
+    const current = gameRef.current;
+    if (current.status !== 'playing') return;
+
+    tiltImpulseRef.current += current.ball.x >= 50 ? -2.4 : 2.4;
+    tableShake.stopAnimation();
+    tableShake.setValue(0);
+    Animated.sequence([
+      Animated.timing(tableShake, { toValue: -6, duration: 45, useNativeDriver: true }),
+      Animated.timing(tableShake, { toValue: 6, duration: 55, useNativeDriver: true }),
+      Animated.timing(tableShake, { toValue: -4, duration: 45, useNativeDriver: true }),
+      Animated.timing(tableShake, { toValue: 3, duration: 45, useNativeDriver: true }),
+      Animated.timing(tableShake, { toValue: 0, duration: 45, useNativeDriver: true }),
+    ]).start();
+  };
+
   const difficultyOptions: { value: Difficulty; label: string }[] = [
     { value: 'easy', label: t.easy },
     { value: 'normal', label: t.normal },
@@ -300,44 +326,46 @@ export function PinballGame({ language, onRoundComplete }: Props) {
         <Text style={styles.stat}>{t.pinballLives}: {'⚪'.repeat(game.lives)}</Text>
       </View>
 
-      <ImageBackground
-        source={FOREST_PINBALL}
-        resizeMode="stretch"
-        imageStyle={styles.tableImage}
-        style={[styles.table, { width: boardWidth, height: boardHeight }]}
-      >
-        {FOREST_TARGETS.map((target, index) => game.litTargets[index] ? (
-          <View
-            key={`target-glow-${index}`}
-            pointerEvents="none"
-            style={[
-              styles.targetGlow,
-              { left: `${target.x}%`, top: `${target.y}%` },
-            ]}
-          />
-        ) : null)}
-        <View style={[styles.flipperGlow, styles.leftFlipper, flippers.left && styles.flipperActive]} />
-        <View style={[styles.flipperGlow, styles.rightFlipper, flippers.right && styles.flipperActive]} />
-        <View style={[styles.ball, { left: `${game.ball.x}%`, top: `${game.ball.y}%` }]} />
-        {scorePopups.map((popup) => (
-          <ScorePopup key={popup.id} item={popup} onDone={removeScorePopup} />
-        ))}
-        {game.status === 'ready' && (
-          <View style={styles.overlay}>
-            <Text style={styles.overlayText}>{t.pinballReady}</Text>
-          </View>
-        )}
-        {game.status === 'over' && (
-          <View style={styles.overlay}>
-            <Text style={styles.overlayText}>{t.pinballGameOver}: {game.score}</Text>
-          </View>
-        )}
-        {game.status === 'paused' && (
-          <View style={styles.overlay}>
-            <Text style={styles.overlayText}>{t.pinballPaused}</Text>
-          </View>
-        )}
-      </ImageBackground>
+      <Animated.View style={{ width: boardWidth, height: boardHeight, transform: [{ translateX: tableShake }] }}>
+        <ImageBackground
+          source={FOREST_PINBALL}
+          resizeMode="stretch"
+          imageStyle={styles.tableImage}
+          style={[styles.table, { width: boardWidth, height: boardHeight }]}
+        >
+          {FOREST_TARGETS.map((target, index) => game.litTargets[index] ? (
+            <View
+              key={`target-glow-${index}`}
+              pointerEvents="none"
+              style={[
+                styles.targetGlow,
+                { left: `${target.x}%`, top: `${target.y}%` },
+              ]}
+            />
+          ) : null)}
+          <View style={[styles.flipperGlow, styles.leftFlipper, flippers.left && styles.flipperActive]} />
+          <View style={[styles.flipperGlow, styles.rightFlipper, flippers.right && styles.flipperActive]} />
+          <View style={[styles.ball, { left: `${game.ball.x}%`, top: `${game.ball.y}%` }]} />
+          {scorePopups.map((popup) => (
+            <ScorePopup key={popup.id} item={popup} onDone={removeScorePopup} />
+          ))}
+          {game.status === 'ready' && (
+            <View style={styles.overlay}>
+              <Text style={styles.overlayText}>{t.pinballReady}</Text>
+            </View>
+          )}
+          {game.status === 'over' && (
+            <View style={styles.overlay}>
+              <Text style={styles.overlayText}>{t.pinballGameOver}: {game.score}</Text>
+            </View>
+          )}
+          {game.status === 'paused' && (
+            <View style={styles.overlay}>
+              <Text style={styles.overlayText}>{t.pinballPaused}</Text>
+            </View>
+          )}
+        </ImageBackground>
+      </Animated.View>
 
       <View style={styles.actionsRow}>
         {game.status === 'playing' ? (
@@ -376,6 +404,15 @@ export function PinballGame({ language, onRoundComplete }: Props) {
           <Text style={styles.flipperLabel}>{t.pinballRightFlipper}</Text>
         </Pressable>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.pinballTilt}
+        disabled={game.status !== 'playing'}
+        onPress={triggerTilt}
+        style={[styles.tiltButton, game.status !== 'playing' && styles.disabledTiltButton]}
+      >
+        <Text style={styles.startText}>{t.pinballTilt}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -408,6 +445,8 @@ const styles = StyleSheet.create({
   startButton: { minWidth: 150, alignItems: 'center', backgroundColor: '#2f8b5f', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
   startText: { color: '#fff', fontWeight: '900' },
   flipperControls: { width: '100%', flexDirection: 'row', justifyContent: 'space-around', gap: 12 },
+  tiltButton: { minWidth: 150, alignItems: 'center', backgroundColor: '#bd842c', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  disabledTiltButton: { opacity: 0.5 },
   flipperButton: { flex: 1, minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff4d7', borderColor: '#efd8a2', borderRadius: 12, borderWidth: 1, padding: 8 },
   flipperButtonActive: { backgroundColor: '#f5dc8c', borderColor: '#bd842c' },
   characterImage: { width: 32, height: 32, borderRadius: 16 },
