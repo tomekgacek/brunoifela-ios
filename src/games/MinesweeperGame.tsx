@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { translations, type Language } from '../locales';
 
 type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
@@ -100,6 +100,7 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
   const [status, setStatus] = useState<GameStatus>('ready');
   const [flagMode, setFlagMode] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [showWinSummary, setShowWinSummary] = useState(false);
   const reportedWin = useRef(false);
   const longPressHandled = useRef(false);
 
@@ -122,6 +123,7 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
     setStatus('ready');
     setFlagMode(false);
     setSeconds(0);
+    setShowWinSummary(false);
     reportedWin.current = false;
   };
 
@@ -153,12 +155,22 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
 
     const nextBoard = revealArea(startingBoard, row, column);
     setBoard(nextBoard);
-    setStatus('playing');
     const safeCells = nextBoard.flat().filter((cell) => cell.revealed).length;
-    if (safeCells === config.rows * config.columns - config.mines) setStatus('won');
+    if (safeCells === config.rows * config.columns - config.mines) {
+      setBoard(nextBoard.map((cells) => cells.map((cell) =>
+        cell.mine ? { ...cell, revealed: true } : cell,
+      )));
+      setStatus('won');
+      setShowWinSummary(true);
+    } else {
+      setStatus('playing');
+    }
   };
 
   const flaggedCount = board.flat().filter((cell) => cell.flagged).length;
+  const correctFlagCount = board.flat().filter((cell) => cell.mine && cell.flagged).length;
+  const unnecessaryFlagCount = board.flat().filter((cell) => !cell.mine && cell.flagged).length;
+  const unflaggedMineCount = board.flat().filter((cell) => cell.mine && !cell.flagged).length;
   const difficultyOptions: { value: Difficulty; label: string }[] = [
     { value: 'easy', label: t.easy },
     { value: 'normal', label: t.normal },
@@ -197,7 +209,13 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
               <Pressable
                 key={`${rowIndex}-${columnIndex}`}
                 accessibilityRole="button"
-                accessibilityLabel={cell.revealed ? `${rowIndex + 1}, ${columnIndex + 1}, ${cell.mine ? t.minesweeperMines : cell.adjacent}` : `${rowIndex + 1}, ${columnIndex + 1}`}
+                accessibilityLabel={
+                  cell.mine && cell.flagged ? t.minesweeperCorrectFlagAccessibility
+                    : cell.mine && cell.revealed ? t.minesweeperUnflaggedMineAccessibility
+                      : cell.flagged && status === 'won' ? t.minesweeperWrongFlagAccessibility
+                        : cell.revealed ? `${rowIndex + 1}, ${columnIndex + 1}, ${cell.mine ? t.minesweeperMines : cell.adjacent}`
+                          : `${rowIndex + 1}, ${columnIndex + 1}`
+                }
                 onPressIn={() => {
                   longPressHandled.current = false;
                 }}
@@ -218,6 +236,9 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
                   { width: cellSize, height: cellSize },
                   cell.revealed && styles.revealedCell,
                   cell.flagged && styles.flaggedCell,
+                  status === 'won' && cell.mine && cell.flagged && styles.correctMineFlag,
+                  status === 'won' && cell.mine && !cell.flagged && styles.unflaggedMine,
+                  status === 'won' && cell.flagged && !cell.mine && styles.unnecessaryFlag,
                 ]}
               >
                 <Text style={[
@@ -225,7 +246,17 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
                   cell.adjacent > 0 && styles.number,
                   cell.adjacent > 0 && { color: NUMBER_COLORS[cell.adjacent - 1] },
                 ]}>
-                  {cell.flagged && !cell.revealed ? '🚩' : cell.revealed && cell.mine ? '🌰' : cell.revealed && cell.adjacent > 0 ? cell.adjacent : ''}
+                  {status === 'won' && cell.mine
+                    ? '🌰'
+                    : status === 'won' && cell.flagged && !cell.mine
+                      ? '❌'
+                      : cell.flagged && !cell.revealed
+                        ? '🚩'
+                        : cell.revealed && cell.mine
+                          ? '🌰'
+                          : cell.revealed && cell.adjacent > 0
+                            ? cell.adjacent
+                            : ''}
                 </Text>
               </Pressable>
             ))}
@@ -234,14 +265,15 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
       </View>
 
       {status === 'ready' && <Text style={styles.message}>{t.minesweeperReady}</Text>}
-      {status === 'won' && <Text style={styles.winMessage}>{t.minesweeperWon}</Text>}
+      {status === 'won' && !showWinSummary && <Text style={styles.winMessage}>{t.minesweeperWon}</Text>}
       {status === 'lost' && <Text style={styles.lossMessage}>{t.minesweeperLost}</Text>}
 
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
+          disabled={status === 'won' || status === 'lost'}
           onPress={() => setFlagMode((current) => !current)}
-          style={[styles.actionButton, flagMode && styles.flagModeActive]}
+          style={[styles.actionButton, flagMode && styles.flagModeActive, (status === 'won' || status === 'lost') && styles.disabledAction]}
         >
           <Text style={styles.actionText}>{flagMode ? t.minesweeperRevealMode : t.minesweeperFlagMode}</Text>
         </Pressable>
@@ -249,6 +281,31 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
           <Text style={styles.actionText}>{t.minesweeperNewGame}</Text>
         </Pressable>
       </View>
+
+      <Modal
+        visible={showWinSummary}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowWinSummary(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>{t.minesweeperCongratulations}</Text>
+            <Text style={styles.summaryMessage}>{t.minesweeperWon}</Text>
+            <Text style={styles.summaryIntro}>{t.minesweeperWinSummary}</Text>
+            <Text style={styles.summaryLine}>✅ {t.minesweeperCorrectFlags}: {correctFlagCount}/{config.mines}</Text>
+            <Text style={styles.summaryLine}>❌ {t.minesweeperWrongFlags}: {unnecessaryFlagCount}</Text>
+            <Text style={styles.summaryLine}>🌰 {t.minesweeperUnflaggedMines}: {unflaggedMineCount}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowWinSummary(false)}
+              style={styles.summaryButton}
+            >
+              <Text style={styles.summaryButtonText}>{t.minesweeperReviewBoard}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -269,6 +326,9 @@ const styles = StyleSheet.create({
   cell: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#dcebc9', borderColor: '#95ae7b', borderWidth: 1, padding: 0 },
   revealedCell: { backgroundColor: '#f8f0d9', borderColor: '#d9cba8' },
   flaggedCell: { backgroundColor: '#f5d894' },
+  correctMineFlag: { backgroundColor: '#a8d89e', borderColor: '#43804a', borderWidth: 2 },
+  unflaggedMine: { backgroundColor: '#f1a59a', borderColor: '#b84b3e', borderWidth: 2 },
+  unnecessaryFlag: { backgroundColor: '#ffd0a1', borderColor: '#c97b38', borderWidth: 2 },
   cellText: { fontSize: 17, fontWeight: '900' },
   number: { fontSize: 15 },
   message: { color: '#644d33', fontWeight: '800', textAlign: 'center' },
@@ -277,5 +337,14 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
   actionButton: { minWidth: 130, alignItems: 'center', backgroundColor: '#2f8b5f', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   flagModeActive: { backgroundColor: '#cb8d2d' },
+  disabledAction: { opacity: 0.55 },
   actionText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#17261dcc', padding: 22 },
+  summaryCard: { width: '100%', maxWidth: 360, alignItems: 'center', gap: 12, backgroundColor: '#fff8e9', borderColor: '#d8b979', borderRadius: 20, borderWidth: 2, paddingHorizontal: 22, paddingVertical: 26, elevation: 8 },
+  summaryTitle: { color: '#2f8b5f', fontSize: 28, fontWeight: '900', textAlign: 'center' },
+  summaryMessage: { color: '#644d33', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  summaryIntro: { color: '#644d33', fontSize: 14, textAlign: 'center' },
+  summaryLine: { alignSelf: 'stretch', color: '#4e3b25', fontSize: 15, fontWeight: '800' },
+  summaryButton: { alignItems: 'center', backgroundColor: '#2f8b5f', borderRadius: 12, marginTop: 6, paddingHorizontal: 18, paddingVertical: 12 },
+  summaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center' },
 });

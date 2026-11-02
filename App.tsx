@@ -150,6 +150,8 @@ const EPISODE_MEDIA_LINKS: Record<string, EpisodeMediaLinks> = {
   S01E02: {
     youtube: 'https://www.youtube.com/watch?v=JvaN64XcHhg&list=PLRZpIqDCRXC0&index=3',
     spotify: 'https://open.spotify.com/episode/2Qmc4LkFW3f7boFIpyHNnc?si=1teGYOq-Qg6CtMf0xZRolg',
+    englishYoutube: 'https://youtu.be/_Qgaf41fplk',
+    englishSpotify: 'https://open.spotify.com/episode/4lAKYpwBtCRcaRnW4SPVZT?si=s024K6vwTB6yUJPw4Vopfg',
   },
   S01E03: {
     youtube: 'https://www.youtube.com/watch?v=VCGypitlMZg&list=PLRZpIqDCRXC0&index=4',

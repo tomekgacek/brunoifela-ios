@@ -429,8 +429,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   controlButton: {
-    width: 52,
-    height: 42,
+    width: 76,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff4d7',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   controlButtonText: {
     color: '#4e3b25',
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: '900',
   },
 });
