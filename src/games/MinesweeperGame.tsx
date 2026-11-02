@@ -100,6 +100,7 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
   const [status, setStatus] = useState<GameStatus>('ready');
   const [flagMode, setFlagMode] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(true);
   const [showWinSummary, setShowWinSummary] = useState(false);
   const reportedWin = useRef(false);
   const longPressHandled = useRef(false);
@@ -281,6 +282,30 @@ export function MinesweeperGame({ language, onRoundComplete }: Props) {
           <Text style={styles.actionText}>{t.minesweeperNewGame}</Text>
         </Pressable>
       </View>
+
+      <Modal
+        visible={showInstructions}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInstructions(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>{t.minesweeperHowToPlay}</Text>
+            <Text style={styles.summaryIntro}>{t.minesweeperHowToReveal}</Text>
+            <Text style={styles.summaryIntro}>{t.minesweeperHowToNumbers}</Text>
+            <Text style={styles.summaryIntro}>{t.minesweeperHowToFlag}</Text>
+            <Text style={styles.summaryIntro}>{t.minesweeperHowToWin}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowInstructions(false)}
+              style={styles.summaryButton}
+            >
+              <Text style={styles.summaryButtonText}>{t.minesweeperStartPlaying}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showWinSummary}

@@ -2015,10 +2015,10 @@ export default function App() {
               <View style={styles.nextSeasonCard}>
                 <FindCharacterGame
                   language={language}
-                  onRoundComplete={() => {
+                  onRoundComplete={(score) => {
                     setDailyRounds((current) => current + 1);
                     announce('Brawo');
-                    showFeedback(t.findCharacterComplete);
+                    showFeedback(`${t.findCharacterComplete} ${t.findCharacterScore}: ${score}`);
                   }}
                 />
               </View>

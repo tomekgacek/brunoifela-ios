@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { translations, type Language } from '../locales';
 
@@ -38,7 +38,7 @@ function createScene(target: Character, round: number, difficulty: Difficulty): 
 
 type Props = {
   language: Language;
-  onRoundComplete: () => void;
+  onRoundComplete: (score: number) => void;
 };
 
 export function FindCharacterGame({ language, onRoundComplete }: Props) {
@@ -51,8 +51,20 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
   const [foundId, setFoundId] = useState<number | null>(null);
   const [gameComplete, setGameComplete] = useState(false);
   const [mistakes, setMistakes] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [roundPoints, setRoundPoints] = useState(0);
+  const [totalScore, setTotalScore] = useState(0);
+  const roundStartedAt = useRef(Date.now());
   const [message, setMessage] = useState(t.findCharacterPrompt);
   const totalRounds = DIFFICULTY_CONFIG[difficulty].rounds;
+
+  useEffect(() => {
+    if (foundId !== null || gameComplete) return undefined;
+    const timer = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - roundStartedAt.current) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [foundId, gameComplete, round]);
 
   const tileSize = Math.max(28, Math.min(40, Math.floor((screenWidth - 68 - (COLUMNS - 1) * 4) / COLUMNS)));
   const targetImage = target === 'bruno' ? CHARACTER_ASSETS.bruno : CHARACTER_ASSETS.fela;
@@ -75,6 +87,10 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
     setFoundId(null);
     setGameComplete(false);
     setMistakes(0);
+    setElapsedSeconds(0);
+    setRoundPoints(0);
+    setTotalScore(0);
+    roundStartedAt.current = Date.now();
     setMessage(t.findCharacterPrompt);
   };
 
@@ -87,10 +103,15 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
     }
 
     setFoundId(item.id);
+    const points = Math.max(10, 100 - Math.floor((Date.now() - roundStartedAt.current) / 1000) * 5 - mistakes * 2);
+    const finalScore = totalScore + points;
+    setRoundPoints(points);
+    setTotalScore(finalScore);
+    setElapsedSeconds(Math.floor((Date.now() - roundStartedAt.current) / 1000));
     if (round === totalRounds) {
       setGameComplete(true);
       setMessage(t.findCharacterComplete);
-      onRoundComplete();
+      onRoundComplete(finalScore);
       return;
     }
     setMessage(correctLabel);
@@ -101,6 +122,9 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
     setRound(next);
     setScene(createScene(target, next, difficulty));
     setFoundId(null);
+    setElapsedSeconds(0);
+    setRoundPoints(0);
+    roundStartedAt.current = Date.now();
     setMessage(t.findCharacterPrompt);
   };
 
@@ -159,6 +183,10 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
         <Text style={styles.stats}>{t.findCharacterRound}: {round}/{totalRounds}</Text>
         <Text style={styles.stats}>{t.findCharacterMistakes}: {mistakes}</Text>
       </View>
+      <View style={styles.statsRow}>
+        <Text style={styles.stats}>{t.findCharacterTime}: {elapsedSeconds}s</Text>
+        <Text style={styles.stats}>{t.findCharacterScore}: {totalScore}</Text>
+      </View>
 
       <View style={[styles.scene, { padding: 5 }]}>
         {sceneRows.map((row, rowIndex) => (
@@ -196,6 +224,9 @@ export function FindCharacterGame({ language, onRoundComplete }: Props) {
       </View>
 
       <Text style={[styles.status, foundId !== null && styles.success]}>{message}</Text>
+      {foundId !== null && (
+        <Text style={styles.success}>{t.findCharacterRoundScore}: +{roundPoints}</Text>
+      )}
       {foundId !== null && !gameComplete && (
         <Pressable style={styles.nextButton} onPress={nextRound}>
           <Text style={styles.nextButtonText}>{t.findCharacterNextRound}</Text>

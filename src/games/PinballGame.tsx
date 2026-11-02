@@ -18,15 +18,17 @@ type GameState = {
 type Props = { language: Language; onRoundComplete: (score: number) => void };
 
 const FOREST_TARGETS: Target[] = [
-  { x: 33, y: 25, radius: 5.5, points: 15 },
-  { x: 50, y: 24, radius: 5.5, points: 25 },
-  { x: 67, y: 25, radius: 5.5, points: 15 },
-  { x: 29, y: 42, radius: 6, points: 10 },
-  { x: 72, y: 42, radius: 6, points: 10 },
-  { x: 38, y: 56, radius: 7, points: 8 },
-  { x: 63, y: 56, radius: 7, points: 8 },
-  { x: 20, y: 73, radius: 6, points: 5 },
-  { x: 80, y: 73, radius: 6, points: 5 },
+  { x: 35, y: 26, radius: 4, points: 15 },
+  { x: 50, y: 22, radius: 4, points: 25 },
+  { x: 65, y: 26, radius: 4, points: 15 },
+  { x: 29, y: 39, radius: 5, points: 10 },
+  { x: 50, y: 33, radius: 5, points: 20 },
+  { x: 72, y: 39, radius: 5, points: 10 },
+  { x: 30, y: 55, radius: 4.5, points: 8 },
+  { x: 50, y: 48, radius: 4.5, points: 14 },
+  { x: 72, y: 55, radius: 4.5, points: 8 },
+  { x: 23, y: 65, radius: 3, points: 5 },
+  { x: 77, y: 65, radius: 3, points: 5 },
 ];
 
 const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; launch: number; lives: number }> = {
@@ -36,7 +38,7 @@ const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; launch: number; l
   expert: { gravity: 0.4, launch: 7.4, lives: 2 },
 };
 
-const BALL_RADIUS = 26;
+const BALL_RADIUS = 15;
 const DRAIN_LEFT = 43;
 const DRAIN_RIGHT = 57;
 
@@ -369,7 +371,7 @@ const styles = StyleSheet.create({
   table: { overflow: 'hidden', borderColor: '#66834f', borderRadius: 20, borderWidth: 4 },
   tableImage: { borderRadius: 16 },
   targetGlow: { position: 'absolute', width: 34, height: 34, marginLeft: -17, marginTop: -17, backgroundColor: '#fff36b99', borderColor: '#fff9ae', borderRadius: 20, borderWidth: 2, shadowColor: '#ffeb3b', shadowOpacity: 1, shadowRadius: 16, elevation: 10 },
-  ball: { position: 'absolute', width: BALL_RADIUS * 2, height: BALL_RADIUS * 2, marginLeft: -BALL_RADIUS, marginTop: -BALL_RADIUS, backgroundColor: '#fff', borderColor: '#84919b', borderRadius: BALL_RADIUS, borderWidth: 3, shadowColor: '#fff', shadowOpacity: 0.9, shadowRadius: 7, elevation: 7 },
+  ball: { position: 'absolute', width: BALL_RADIUS * 2, height: BALL_RADIUS * 2, marginLeft: -BALL_RADIUS, marginTop: -BALL_RADIUS, backgroundColor: '#fff', borderColor: '#84919b', borderRadius: BALL_RADIUS, borderWidth: 2, shadowColor: '#fff', shadowOpacity: 0.9, shadowRadius: 5, elevation: 5 },
   scorePopup: { position: 'absolute', zIndex: 10, marginLeft: -30, marginTop: -16 },
   scorePopupText: { color: '#ffd54f', fontSize: 26, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   flipperGlow: { position: 'absolute', top: '86%', width: '31%', height: '4%', borderColor: '#ffe47b', borderRadius: 12, borderWidth: 2 },
