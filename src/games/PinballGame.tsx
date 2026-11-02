@@ -3,7 +3,7 @@ import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, useWindo
 import { translations, type Language } from '../locales';
 
 type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
-type GameStatus = 'ready' | 'playing' | 'paused' | 'over';
+type GameStatus = 'ready' | 'playing' | 'paused' | 'draining' | 'over';
 type Target = { x: number; y: number; radius: number; points: number };
 type Ball = { x: number; y: number; vx: number; vy: number };
 type ScorePopupItem = { id: number; x: number; y: number; points: number };
@@ -109,9 +109,31 @@ export function PinballGame({ language, onRoundComplete }: Props) {
   gameRef.current = game;
 
   useEffect(() => {
-    if (game.status !== 'playing') return undefined;
+    if (game.status !== 'playing' && game.status !== 'draining') return undefined;
     const timer = setInterval(() => {
       const current = gameRef.current;
+      if (current.status === 'draining') {
+        const ball = { ...current.ball, y: current.ball.y + 3 };
+        if (ball.y <= 105) {
+          setGame({ ...current, ball });
+          return;
+        }
+
+        const lives = current.lives - 1;
+        if (lives <= 0) {
+          setGame({ ...current, ball, lives: 0, status: 'over' });
+          return;
+        }
+
+        const config = DIFFICULTY_CONFIG[difficultyRef.current];
+        setGame({
+          ...current,
+          ball: { x: 50, y: 90, vx: 0, vy: -config.launch },
+          lives,
+          status: 'playing',
+        });
+        return;
+      }
       if (current.status !== 'playing') return;
 
       const config = DIFFICULTY_CONFIG[difficultyRef.current];
@@ -190,18 +212,16 @@ export function PinballGame({ language, onRoundComplete }: Props) {
         }
       }
 
-      if (y > 96 && x >= DRAIN_LEFT && x <= DRAIN_RIGHT) {
+      if (y > 92 && x >= DRAIN_LEFT && x <= DRAIN_RIGHT) {
         if (newPopups.length > 0) setScorePopups((popups) => [...popups, ...newPopups]);
-        const lives = current.lives - 1;
-        if (lives <= 0) {
-          setGame({ ...current, ball: { x, y, vx, vy }, score, lives: 0, status: 'over', bumperCooldown: cooldown, litTargets });
-          return;
-        }
-        x = 50;
-        y = 90;
-        vx = 0;
-        vy = -config.launch;
-        setGame({ ...current, ball: { x, y, vx, vy }, score, lives, bumperCooldown: cooldown, litTargets });
+        setGame({
+          ...current,
+          ball: { x, y: 92, vx, vy },
+          score,
+          status: 'draining',
+          bumperCooldown: cooldown,
+          litTargets,
+        });
         return;
       }
 
@@ -368,7 +388,7 @@ const styles = StyleSheet.create({
   optionTextActive: { color: '#fff' },
   statsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' },
   stat: { color: '#644d33', fontSize: 12, fontWeight: '900' },
-  table: { overflow: 'hidden', borderColor: '#66834f', borderRadius: 20, borderWidth: 4 },
+  table: { overflow: 'visible', borderColor: '#66834f', borderRadius: 20, borderWidth: 4 },
   tableImage: { borderRadius: 16 },
   targetGlow: { position: 'absolute', width: 34, height: 34, marginLeft: -17, marginTop: -17, backgroundColor: '#fff36b99', borderColor: '#fff9ae', borderRadius: 20, borderWidth: 2, shadowColor: '#ffeb3b', shadowOpacity: 1, shadowRadius: 16, elevation: 10 },
   ball: { position: 'absolute', width: BALL_RADIUS * 2, height: BALL_RADIUS * 2, marginLeft: -BALL_RADIUS, marginTop: -BALL_RADIUS, backgroundColor: '#fff', borderColor: '#84919b', borderRadius: BALL_RADIUS, borderWidth: 2, shadowColor: '#fff', shadowOpacity: 0.9, shadowRadius: 5, elevation: 5 },
