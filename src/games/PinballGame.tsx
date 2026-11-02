@@ -31,11 +31,11 @@ const FOREST_TARGETS: Target[] = [
   { x: 77, y: 65, radius: 3, points: 5 },
 ];
 
-const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; launch: number; lives: number }> = {
-  easy: { gravity: 0.24, launch: 6.2, lives: 4 },
-  normal: { gravity: 0.3, launch: 6.5, lives: 3 },
-  hard: { gravity: 0.34, launch: 7, lives: 3 },
-  expert: { gravity: 0.4, launch: 7.4, lives: 2 },
+const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; entrySpeed: number; lives: number }> = {
+  easy: { gravity: 0.24, entrySpeed: 2.2, lives: 4 },
+  normal: { gravity: 0.3, entrySpeed: 2.4, lives: 3 },
+  hard: { gravity: 0.34, entrySpeed: 2.6, lives: 3 },
+  expert: { gravity: 0.4, entrySpeed: 2.8, lives: 2 },
 };
 
 const BALL_RADIUS = 15;
@@ -51,6 +51,10 @@ function getRailBounds(y: number): { left: number; right: number } {
 const LEFT_BRUNO = require('../../assets/game/landing-page/Bruno.png');
 const RIGHT_FELA = require('../../assets/game/landing-page/Fela.png');
 const FOREST_PINBALL = require('../../assets/game/ForestPinball.png');
+
+function createEntryBall(entrySpeed: number): Ball {
+  return { x: 50, y: 5, vx: 0, vy: entrySpeed };
+}
 
 function ScorePopup({ item, onDone }: { item: ScorePopupItem; onDone: (id: number) => void }) {
   const translateY = useRef(new Animated.Value(0)).current;
@@ -128,7 +132,7 @@ export function PinballGame({ language, onRoundComplete }: Props) {
         const config = DIFFICULTY_CONFIG[difficultyRef.current];
         setGame({
           ...current,
-          ball: { x: 50, y: 90, vx: 0, vy: -config.launch },
+          ball: createEntryBall(config.entrySpeed),
           lives,
           status: 'playing',
         });
@@ -258,7 +262,7 @@ export function PinballGame({ language, onRoundComplete }: Props) {
     setScorePopups([]);
     reportedGameOver.current = false;
     const nextGame = createGame(DIFFICULTY_CONFIG[nextDifficulty].lives, 'playing');
-    nextGame.ball = { x: 50, y: 89, vx: (Math.random() - 0.5) * 0.5, vy: -DIFFICULTY_CONFIG[nextDifficulty].launch };
+    nextGame.ball = createEntryBall(DIFFICULTY_CONFIG[nextDifficulty].entrySpeed);
     setGame(nextGame);
   };
 
