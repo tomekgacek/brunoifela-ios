@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, ImageBackground, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { translations, type Language } from '../locales';
 
 type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
-type BoardId = 'forest' | 'school' | 'river';
 type GameStatus = 'ready' | 'playing' | 'paused' | 'over';
-type Bumper = { x: number; y: number; icon: string; color: string };
+type Target = { x: number; y: number; radius: number };
 type Ball = { x: number; y: number; vx: number; vy: number };
 type GameState = {
   ball: Ball;
@@ -16,40 +15,17 @@ type GameState = {
 };
 type Props = { language: Language; onRoundComplete: (score: number) => void };
 
-const BOARD_LAYOUTS: Record<BoardId, { background: string; bumpers: Bumper[] }> = {
-  forest: {
-    background: '#dcebc9',
-    bumpers: [
-      { x: 25, y: 22, icon: '🌳', color: '#78a763' },
-      { x: 72, y: 28, icon: '🍄', color: '#e9894d' },
-      { x: 49, y: 46, icon: '🌰', color: '#d5a649' },
-      { x: 22, y: 54, icon: '🌼', color: '#e5c852' },
-      { x: 77, y: 57, icon: '🦋', color: '#8b79c4' },
-    ],
-  },
-  school: {
-    background: '#f4e3ba',
-    bumpers: [
-      { x: 50, y: 20, icon: '🔔', color: '#d4a940' },
-      { x: 27, y: 35, icon: '📚', color: '#7995c4' },
-      { x: 73, y: 35, icon: '✏️', color: '#df7887' },
-      { x: 50, y: 52, icon: '⭐', color: '#e5c852' },
-      { x: 25, y: 59, icon: '🍎', color: '#dc6a57' },
-      { x: 75, y: 59, icon: '🎒', color: '#73ad72' },
-    ],
-  },
-  river: {
-    background: '#cde9ed',
-    bumpers: [
-      { x: 30, y: 23, icon: '🐟', color: '#67a8d1' },
-      { x: 70, y: 26, icon: '🐚', color: '#e9899d' },
-      { x: 50, y: 42, icon: '💧', color: '#67a8d1' },
-      { x: 25, y: 54, icon: '🪷', color: '#c97ca8' },
-      { x: 75, y: 55, icon: '🌿', color: '#73ad72' },
-      { x: 50, y: 63, icon: '⭐', color: '#e5c852' },
-    ],
-  },
-};
+const FOREST_TARGETS: Target[] = [
+  { x: 33, y: 25, radius: 5.5 },
+  { x: 50, y: 24, radius: 5.5 },
+  { x: 67, y: 25, radius: 5.5 },
+  { x: 29, y: 42, radius: 6 },
+  { x: 72, y: 42, radius: 6 },
+  { x: 38, y: 56, radius: 7 },
+  { x: 63, y: 56, radius: 7 },
+  { x: 20, y: 73, radius: 6 },
+  { x: 80, y: 73, radius: 6 },
+];
 
 const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; launch: number; lives: number }> = {
   easy: { gravity: 0.11, launch: 2.8, lives: 4 },
@@ -60,6 +36,7 @@ const DIFFICULTY_CONFIG: Record<Difficulty, { gravity: number; launch: number; l
 
 const LEFT_BRUNO = require('../../assets/game/landing-page/Bruno.png');
 const RIGHT_FELA = require('../../assets/game/landing-page/Fela.png');
+const FOREST_PINBALL = require('../../assets/game/ForestPinball.png');
 
 function createGame(lives: number, status: GameStatus = 'ready'): GameState {
   return {
@@ -74,9 +51,8 @@ function createGame(lives: number, status: GameStatus = 'ready'): GameState {
 export function PinballGame({ language, onRoundComplete }: Props) {
   const t = translations[language];
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const boardWidth = Math.min(350, screenWidth - 48);
-  const boardHeight = Math.min(480, Math.max(330, screenHeight * 0.5));
-  const [boardId, setBoardId] = useState<BoardId>('forest');
+  const boardWidth = Math.min(350, screenWidth - 48, Math.floor((screenHeight - 320) / 1.5));
+  const boardHeight = boardWidth * 1.5;
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [game, setGame] = useState<GameState>(() => createGame(DIFFICULTY_CONFIG.normal.lives));
   const [flippers, setFlippers] = useState({ left: false, right: false });
@@ -107,20 +83,21 @@ export function PinballGame({ language, onRoundComplete }: Props) {
       if (x > 95) { x = 95; vx = -Math.abs(vx) * 0.88; }
       if (y < 3) { y = 3; vy = Math.abs(vy) * 0.85; }
 
-      BOARD_LAYOUTS[boardId].bumpers.forEach((bumper, index) => {
-        const dx = x - bumper.x;
-        const dy = y - bumper.y;
+      FOREST_TARGETS.forEach((target, index) => {
+        const dx = (x - target.x) * boardWidth / 100;
+        const dy = (y - target.y) * boardHeight / 100;
         const distance = Math.hypot(dx, dy);
-        if (distance >= 7 || distance === 0) return;
+        const collisionRadius = target.radius * boardWidth / 100 + 8;
+        if (distance >= collisionRadius || distance === 0) return;
         const nx = dx / distance;
         const ny = dy / distance;
-        const velocityAlongNormal = vx * nx + vy * ny;
+        const velocityAlongNormal = vx * boardWidth / 100 * nx + vy * boardHeight / 100 * ny;
         if (velocityAlongNormal < 0) {
-          vx -= 1.8 * velocityAlongNormal * nx;
-          vy -= 1.8 * velocityAlongNormal * ny;
+          vx -= 1.8 * velocityAlongNormal * nx * 100 / boardWidth;
+          vy -= 1.8 * velocityAlongNormal * ny * 100 / boardHeight;
         }
-        x = bumper.x + nx * 7;
-        y = bumper.y + ny * 7;
+        x = target.x + nx * collisionRadius * 100 / boardWidth;
+        y = target.y + ny * collisionRadius * 100 / boardHeight;
         if ((cooldown[index] ?? 0) === 0) {
           score += 10;
           cooldown[index] = 8;
@@ -128,16 +105,16 @@ export function PinballGame({ language, onRoundComplete }: Props) {
       });
 
       const heldFlippers = flippersRef.current;
-      if (y > 79 && y < 91 && vy > 0) {
-        if (heldFlippers.left && x >= 18 && x <= 53) {
+      if (y > 84 && y < 94 && vy > 0) {
+        if (heldFlippers.left && x >= 18 && x <= 47) {
           vy = -4.8;
           vx += 0.42;
-          y = 78;
+          y = 83;
           score += 5;
-        } else if (heldFlippers.right && x >= 47 && x <= 82) {
+        } else if (heldFlippers.right && x >= 53 && x <= 82) {
           vy = -4.8;
           vx -= 0.42;
-          y = 78;
+          y = 83;
           score += 5;
         }
       }
@@ -164,7 +141,7 @@ export function PinballGame({ language, onRoundComplete }: Props) {
       });
     }, 40);
     return () => clearInterval(timer);
-  }, [boardId, game.status]);
+  }, [boardWidth, boardHeight, game.status]);
 
   useEffect(() => {
     setBestScore((current) => Math.max(current, game.score));
@@ -176,9 +153,8 @@ export function PinballGame({ language, onRoundComplete }: Props) {
     onRoundComplete(game.score);
   }, [game.score, game.status, onRoundComplete]);
 
-  const startGame = (nextDifficulty = difficulty, nextBoard = boardId) => {
+  const startGame = (nextDifficulty = difficulty) => {
     setDifficulty(nextDifficulty);
-    setBoardId(nextBoard);
     setFlippers({ left: false, right: false });
     reportedGameOver.current = false;
     const nextGame = createGame(DIFFICULTY_CONFIG[nextDifficulty].lives, 'playing');
@@ -186,11 +162,6 @@ export function PinballGame({ language, onRoundComplete }: Props) {
     setGame(nextGame);
   };
 
-  const boardOptions: { value: BoardId; label: string }[] = [
-    { value: 'forest', label: t.pinballForest },
-    { value: 'school', label: t.pinballSchool },
-    { value: 'river', label: t.pinballRiver },
-  ];
   const difficultyOptions: { value: Difficulty; label: string }[] = [
     { value: 'easy', label: t.easy },
     { value: 'normal', label: t.normal },
@@ -215,46 +186,20 @@ export function PinballGame({ language, onRoundComplete }: Props) {
           </Pressable>
         ))}
       </View>
-      <Text style={styles.label}>{t.pinballBoard}</Text>
-      <View style={styles.optionsRow}>
-        {boardOptions.map(({ value, label }) => (
-          <Pressable
-            key={value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: boardId === value }}
-            onPress={() => startGame(difficulty, value)}
-            style={[styles.boardOption, boardId === value && styles.optionActive]}
-          >
-            <Text style={[styles.optionText, boardId === value && styles.optionTextActive]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
       <View style={styles.statsRow}>
         <Text style={styles.stat}>{t.score}: {game.score}</Text>
         <Text style={styles.stat}>{t.record}: {bestScore}</Text>
         <Text style={styles.stat}>{t.pinballLives}: {'⚪'.repeat(game.lives)}</Text>
       </View>
 
-      <View style={[
-        styles.table,
-        { width: boardWidth, height: boardHeight, backgroundColor: BOARD_LAYOUTS[boardId].background },
-      ]}>
-        <View style={styles.tableRailLeft} />
-        <View style={styles.tableRailRight} />
-        {BOARD_LAYOUTS[boardId].bumpers.map((bumper, index) => (
-          <View
-            key={`${boardId}-${index}`}
-            style={[
-              styles.bumper,
-              { left: `${bumper.x}%`, top: `${bumper.y}%`, backgroundColor: bumper.color },
-            ]}
-          >
-            <Text style={styles.bumperIcon}>{bumper.icon}</Text>
-          </View>
-        ))}
-        <View style={[styles.flipper, styles.leftFlipper, flippers.left && styles.flipperActive]} />
-        <View style={[styles.flipper, styles.rightFlipper, flippers.right && styles.flipperActive]} />
+      <ImageBackground
+        source={FOREST_PINBALL}
+        resizeMode="stretch"
+        imageStyle={styles.tableImage}
+        style={[styles.table, { width: boardWidth, height: boardHeight }]}
+      >
+        <View style={[styles.flipperGlow, styles.leftFlipper, flippers.left && styles.flipperActive]} />
+        <View style={[styles.flipperGlow, styles.rightFlipper, flippers.right && styles.flipperActive]} />
         <View style={[styles.ball, { left: `${game.ball.x}%`, top: `${game.ball.y}%` }]} />
         {game.status === 'ready' && (
           <View style={styles.overlay}>
@@ -271,7 +216,7 @@ export function PinballGame({ language, onRoundComplete }: Props) {
             <Text style={styles.overlayText}>{t.pinballPaused}</Text>
           </View>
         )}
-      </View>
+      </ImageBackground>
 
       <View style={styles.actionsRow}>
         {game.status === 'playing' ? (
@@ -326,16 +271,13 @@ const styles = StyleSheet.create({
   optionTextActive: { color: '#fff' },
   statsRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' },
   stat: { color: '#644d33', fontSize: 12, fontWeight: '900' },
-  table: { overflow: 'hidden', borderColor: '#66834f', borderRadius: 20, borderWidth: 6 },
-  tableRailLeft: { position: 'absolute', top: '2%', bottom: '6%', left: '4%', width: 5, backgroundColor: '#729168', borderRadius: 4 },
-  tableRailRight: { position: 'absolute', top: '2%', bottom: '6%', right: '4%', width: 5, backgroundColor: '#729168', borderRadius: 4 },
-  bumper: { position: 'absolute', width: 38, height: 38, marginLeft: -19, marginTop: -19, alignItems: 'center', justifyContent: 'center', borderColor: '#fff7df', borderRadius: 20, borderWidth: 3, elevation: 3 },
-  bumperIcon: { fontSize: 20 },
+  table: { overflow: 'hidden', borderColor: '#66834f', borderRadius: 20, borderWidth: 4 },
+  tableImage: { borderRadius: 16 },
   ball: { position: 'absolute', width: 16, height: 16, marginLeft: -8, marginTop: -8, backgroundColor: '#fff', borderColor: '#84919b', borderRadius: 8, borderWidth: 2, elevation: 4 },
-  flipper: { position: 'absolute', bottom: '12%', width: '25%', height: 9, backgroundColor: '#ae7350', borderColor: '#70452e', borderRadius: 8, borderWidth: 2 },
-  leftFlipper: { left: '19%', transform: [{ rotate: '14deg' }] },
-  rightFlipper: { right: '19%', transform: [{ rotate: '-14deg' }] },
-  flipperActive: { backgroundColor: '#f3c85b', borderColor: '#bd842c' },
+  flipperGlow: { position: 'absolute', top: '86%', width: '31%', height: '4%', borderColor: '#ffe47b', borderRadius: 12, borderWidth: 2 },
+  leftFlipper: { left: '15%', transform: [{ rotate: '24deg' }] },
+  rightFlipper: { right: '15%', transform: [{ rotate: '-24deg' }] },
+  flipperActive: { backgroundColor: '#ffe47b88', borderColor: '#fff8c4', shadowColor: '#fff6a4', shadowOpacity: 0.95, shadowRadius: 12, elevation: 8 },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: '#243c35aa', paddingHorizontal: 25 },
   overlayText: { color: '#fff', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   actionsRow: { alignItems: 'center' },
